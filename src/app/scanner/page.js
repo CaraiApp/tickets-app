@@ -1,23 +1,40 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import React, { useState, useRef, useEffect, Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 export default function ScannerPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <Scanner />
+    </Suspense>
+  );
+}
+
+function Scanner() {
   const searchParams = useSearchParams();
-  const empleadoId = searchParams.get('empleadoId');
+  const empleadoId = searchParams.get("empleadoId");
+
   const [empleado, setEmpleado] = useState(null);
-  
   const [capturedImage, setCapturedImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  // Añadir estado para edición
   const [editandoResultados, setEditandoResultados] = useState(false);
   const [resultadosEditados, setResultadosEditados] = useState(null);
 
+  return (
+    <div>
+      <h1>Scanner</h1>
+      {empleadoId && <p>ID del Empleado: {empleadoId}</p>}
+      {/* Tu código sigue aquí... */}
+    </div>
+  );
+}
+
+  
   // Cargar datos del empleado
   // Cargar datos del empleado
 useEffect(() => {
@@ -393,4 +410,3 @@ const guardarTicket = async () => {
       </main>
     </div>
   );
-}
