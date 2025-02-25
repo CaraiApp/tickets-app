@@ -12,16 +12,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Escáner de Tickets",
-  description: "Aplicación para escanear y gestionar tickets de empleados",
-  manifest: "/manifest.json",
-  themeColor: "#3b82f6",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  title: 'Escáner de Tickets',
+  description: 'Aplicación para escanear y gestionar tickets de empleados',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "Escáner de Tickets",
+    statusBarStyle: 'default',
+    title: 'Escáner de Tickets',
   },
+};
+
+export const viewport = {
+  themeColor: '#3b82f6',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }) {

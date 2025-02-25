@@ -4,18 +4,27 @@ import React, { useState, useRef, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+// Componente principal con Suspense
 export default function ScannerPage() {
   return (
-    <Suspense fallback={<div>Cargando...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="mt-2">Cargando...</p>
+        </div>
+      </div>
+    }>
       <Scanner />
     </Suspense>
   );
 }
 
+// Componente Scanner que contiene toda la lógica
 function Scanner() {
   const searchParams = useSearchParams();
   const empleadoId = searchParams.get("empleadoId");
-
+  
   const [empleado, setEmpleado] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -25,37 +34,26 @@ function Scanner() {
   const [editandoResultados, setEditandoResultados] = useState(false);
   const [resultadosEditados, setResultadosEditados] = useState(null);
 
-  return (
-    <div>
-      <h1>Scanner</h1>
-      {empleadoId && <p>ID del Empleado: {empleadoId}</p>}
-      {/* Tu código sigue aquí... */}
-    </div>
-  );
-}
-
-  
   // Cargar datos del empleado
-  // Cargar datos del empleado
-useEffect(() => {
-  if (empleadoId) {
-    async function fetchEmpleadoData() {
-      try {
-        const response = await fetch(`/api/empleados/${empleadoId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setEmpleado(data.empleado);
-        } else {
-          console.error('Error al cargar datos del empleado');
+  useEffect(() => {
+    if (empleadoId) {
+      async function fetchEmpleadoData() {
+        try {
+          const response = await fetch(`/api/empleados/${empleadoId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setEmpleado(data.empleado);
+          } else {
+            console.error('Error al cargar datos del empleado');
+          }
+        } catch (error) {
+          console.error('Error:', error);
         }
-      } catch (error) {
-        console.error('Error:', error);
       }
+      
+      fetchEmpleadoData();
     }
-    
-    fetchEmpleadoData();
-  }
-}, [empleadoId]);
+  }, [empleadoId]);
 
   useEffect(() => {
     // Limpieza al desmontar el componente
@@ -64,10 +62,10 @@ useEffect(() => {
     };
   }, []);
 
-// Cuando se reciben resultados, inicializar los resultados editados
+  // Cuando se reciben resultados, inicializar los resultados editados
   useEffect(() => {
     if (results) {
-     setResultadosEditados({...results});
+      setResultadosEditados({...results});
     }
   }, [results]);
 
@@ -152,71 +150,71 @@ useEffect(() => {
   };
 
   // Añadir función para manejar cambios en los items
-const handleItemChange = (index, field, value) => {
-  const updatedItems = [...resultadosEditados.items];
-  updatedItems[index] = {
-    ...updatedItems[index],
-    [field]: value
-  };
-  
-  setResultadosEditados({
-    ...resultadosEditados,
-    items: updatedItems
-  });
-};
-
-// Añadir función para añadir un ítem nuevo
-const addNewItem = () => {
-  setResultadosEditados({
-    ...resultadosEditados,
-    items: [
-      ...resultadosEditados.items,
-      { name: '', price: '0.00€' }
-    ]
-  });
-};
-
-// Añadir función para eliminar un ítem
-const removeItem = (index) => {
-  const updatedItems = [...resultadosEditados.items];
-  updatedItems.splice(index, 1);
-  
-  setResultadosEditados({
-    ...resultadosEditados,
-    items: updatedItems
-  });
-};
-
-const guardarTicket = async () => {
-  if (!resultadosEditados || !empleadoId) return;
-  
-  try {
-    const response = await fetch('/api/tickets', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        empleadoId,
-        fecha: resultadosEditados.fecha,
-        total: resultadosEditados.total,
-        items: resultadosEditados.items,
-        imagen: capturedImage
-      }),
-    });
+  const handleItemChange = (index, field, value) => {
+    const updatedItems = [...resultadosEditados.items];
+    updatedItems[index] = {
+      ...updatedItems[index],
+      [field]: value
+    };
     
-    if (response.ok) {
-      alert('Ticket guardado correctamente');
-      window.location.href = `/empleados/${empleadoId}`;
-    } else {
-      const data = await response.json();
-      alert(`Error: ${data.error || 'No se pudo guardar el ticket'}`);
+    setResultadosEditados({
+      ...resultadosEditados,
+      items: updatedItems
+    });
+  };
+
+  // Añadir función para añadir un ítem nuevo
+  const addNewItem = () => {
+    setResultadosEditados({
+      ...resultadosEditados,
+      items: [
+        ...resultadosEditados.items,
+        { name: '', price: '0.00€' }
+      ]
+    });
+  };
+
+  // Añadir función para eliminar un ítem
+  const removeItem = (index) => {
+    const updatedItems = [...resultadosEditados.items];
+    updatedItems.splice(index, 1);
+    
+    setResultadosEditados({
+      ...resultadosEditados,
+      items: updatedItems
+    });
+  };
+
+  const guardarTicket = async () => {
+    if (!resultadosEditados || !empleadoId) return;
+    
+    try {
+      const response = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          empleadoId,
+          fecha: resultadosEditados.fecha,
+          total: resultadosEditados.total,
+          items: resultadosEditados.items,
+          imagen: capturedImage
+        }),
+      });
+      
+      if (response.ok) {
+        alert('Ticket guardado correctamente');
+        window.location.href = `/empleados/${empleadoId}`;
+      } else {
+        const data = await response.json();
+        alert(`Error: ${data.error || 'No se pudo guardar el ticket'}`);
+      }
+    } catch (error) {
+      console.error('Error al guardar ticket:', error);
+      alert('Error al guardar el ticket');
     }
-  } catch (error) {
-    console.error('Error al guardar ticket:', error);
-    alert('Error al guardar el ticket');
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -301,112 +299,113 @@ const guardarTicket = async () => {
               </div>
             )}
 
-{results && (
-  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-    <div className="flex justify-between items-center mb-4">
-      <h2 className="text-lg font-bold">Resultados</h2>
-      <button 
-        onClick={() => setEditandoResultados(!editandoResultados)}
-        className="text-blue-500 hover:text-blue-700"
-      >
-        {editandoResultados ? 'Cancelar Edición' : 'Editar Resultados'}
-      </button>
-    </div>
-    
-    <div className="space-y-4">
-      <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
-        <div className="flex items-center">
-          <span className="font-semibold mr-2">Total:</span>
-          {editandoResultados ? (
-            <input
-              type="text"
-              value={resultadosEditados.total}
-              onChange={(e) => setResultadosEditados({...resultadosEditados, total: e.target.value})}
-              className="px-2 py-1 border rounded"
-            />
-          ) : (
-            <span>{results.total}</span>
-          )}
-        </div>
-      </div>
-      
-      <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
-        <div className="flex items-center">
-          <span className="font-semibold mr-2">Fecha:</span>
-          {editandoResultados ? (
-            <input
-              type="text"
-              value={resultadosEditados.fecha}
-              onChange={(e) => setResultadosEditados({...resultadosEditados, fecha: e.target.value})}
-              className="px-2 py-1 border rounded"
-            />
-          ) : (
-            <span>{results.fecha}</span>
-          )}
-        </div>
-      </div>
-      
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <span className="font-semibold">Artículos:</span>
-          {editandoResultados && (
-            <button 
-              onClick={addNewItem}
-              className="text-green-500 hover:text-green-700 text-sm"
-            >
-              + Añadir Artículo
-            </button>
-          )}
-        </div>
-        
-        <ul className="mt-2 space-y-2">
-          {(editandoResultados ? resultadosEditados.items : results.items)?.map((item, index) => (
-            <li key={index} className="p-2 bg-gray-100 dark:bg-gray-700 rounded flex justify-between items-center">
-              {editandoResultados ? (
-                <>
-                  <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-                    className="px-2 py-1 border rounded w-1/2"
-                  />
-                  <div className="flex items-center">
-                    <input
-                      type="text"
-                      value={item.price}
-                      onChange={(e) => handleItemChange(index, 'price', e.target.value)}
-                      className="px-2 py-1 border rounded w-24"
-                    />
-                    <button 
-                      onClick={() => removeItem(index)}
-                      className="ml-2 text-red-500 hover:text-red-700"
-                    >
-                      &times;
-                    </button>
+            {results && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-bold">Resultados</h2>
+                  <button 
+                    onClick={() => setEditandoResultados(!editandoResultados)}
+                    className="text-blue-500 hover:text-blue-700"
+                  >
+                    {editandoResultados ? 'Cancelar Edición' : 'Editar Resultados'}
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                    <div className="flex items-center">
+                      <span className="font-semibold mr-2">Total:</span>
+                      {editandoResultados ? (
+                        <input
+                          type="text"
+                          value={resultadosEditados.total}
+                          onChange={(e) => setResultadosEditados({...resultadosEditados, total: e.target.value})}
+                          className="px-2 py-1 border rounded"
+                        />
+                      ) : (
+                        <span>{results.total}</span>
+                      )}
+                    </div>
                   </div>
-                </>
-              ) : (
-                <>
-                  <span>{item.name}</span>
-                  <span>{item.price}</span>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-      
-      <button 
-        onClick={guardarTicket}
-        className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
-      >
-        Guardar Ticket
-      </button>
-    </div>
-  </div>
-)}
+                  
+                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                    <div className="flex items-center">
+                      <span className="font-semibold mr-2">Fecha:</span>
+                      {editandoResultados ? (
+                        <input
+                          type="text"
+                          value={resultadosEditados.fecha}
+                          onChange={(e) => setResultadosEditados({...resultadosEditados, fecha: e.target.value})}
+                          className="px-2 py-1 border rounded"
+                        />
+                      ) : (
+                        <span>{results.fecha}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold">Artículos:</span>
+                      {editandoResultados && (
+                        <button 
+                          onClick={addNewItem}
+                          className="text-green-500 hover:text-green-700 text-sm"
+                        >
+                          + Añadir Artículo
+                        </button>
+                      )}
+                    </div>
+                    
+                    <ul className="mt-2 space-y-2">
+                      {(editandoResultados ? resultadosEditados.items : results.items)?.map((item, index) => (
+                        <li key={index} className="p-2 bg-gray-100 dark:bg-gray-700 rounded flex justify-between items-center">
+                          {editandoResultados ? (
+                            <>
+                              <input
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                                className="px-2 py-1 border rounded w-1/2"
+                              />
+                              <div className="flex items-center">
+                                <input
+                                  type="text"
+                                  value={item.price}
+                                  onChange={(e) => handleItemChange(index, 'price', e.target.value)}
+                                  className="px-2 py-1 border rounded w-24"
+                                />
+                                <button 
+                                  onClick={() => removeItem(index)}
+                                  className="ml-2 text-red-500 hover:text-red-700"
+                                >
+                                  &times;
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <span>{item.name}</span>
+                              <span>{item.price}</span>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  <button 
+                    onClick={guardarTicket}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
+                  >
+                    Guardar Ticket
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
     </div>
   );
+}
