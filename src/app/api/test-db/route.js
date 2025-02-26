@@ -1,36 +1,24 @@
-// src/app/api/test-db/route.js
-import { getConnection } from '../../../lib/db';
+import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
 
-export async function GET(request) {
+export async function GET() {
   try {
-    console.log('Intentando conectar con:');
-    console.log('Host:', process.env.DB_HOST);
-    console.log('Puerto:', process.env.DB_PORT);
-    console.log('Usuario:', process.env.DB_USER);
-    console.log('Base de datos:', process.env.DB_NAME);
-
-    const connection = await getConnection();
+    // Consulta simple para probar conexión
+    const result = await query('SELECT 1 as test');
     
-    const [rows] = await connection.execute('SELECT 1 as test');
-    
-    await connection.end();
-
-    return new Response(JSON.stringify({ 
-      message: 'Conexión a la base de datos exitosa',
-      result: rows[0].test 
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
+    return NextResponse.json({ 
+      message: 'Conexión exitosa',
+      result: result[0].test 
     });
   } catch (error) {
-    console.error('Error de conexión completo:', error);
-    return new Response(JSON.stringify({ 
-      message: 'Error al conectar a la base de datos',
-      error: error.message,
-      errorStack: error.stack
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    console.error('Error en la conexión:', error);
+    return NextResponse.json(
+      { 
+        message: 'Error en la conexión', 
+        error: error.message,
+        fullError: error
+      }, 
+      { status: 500 }
+    );
   }
 }

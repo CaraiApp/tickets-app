@@ -1,4 +1,9 @@
 import mysql from 'mysql2/promise';
+import url from 'url';
+
+// Parsea la URL de Fixie si está disponible
+const fixieUrl = process.env.FIXIE_URL;
+const fixieConfig = fixieUrl ? url.parse(fixieUrl) : null;
 
 // Configuración de la conexión
 const dbConfig = {
@@ -13,6 +18,24 @@ const dbConfig = {
     rejectUnauthorized: false
   }
 };
+
+// Si Fixie está configurado, añade las opciones de proxy
+if (fixieConfig && fixieConfig.auth) {
+  const [proxyUser, proxyPass] = fixieConfig.auth.split(':');
+  
+  dbConfig.socketPath = fixieConfig.hostname;
+  
+  // Añade configuración de proxy si es necesario
+  dbConfig.agent = {
+    protocol: 'http:',
+    host: fixieConfig.hostname,
+    port: fixieConfig.port,
+    auth: {
+      username: proxyUser,
+      password: proxyPass
+    }
+  };
+}
 
 // Función para obtener una conexión
 export async function getConnection() {
