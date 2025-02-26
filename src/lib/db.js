@@ -1,9 +1,38 @@
 import mysql from 'mysql2/promise';
 import url from 'url';
+import net from 'net';
 
 // Parsea la URL de Fixie si está disponible
 const fixieUrl = process.env.FIXIE_URL;
 const fixieConfig = fixieUrl ? url.parse(fixieUrl) : null;
+
+// Función para probar la conexión del proxy
+const testProxyConnection = (hostname, port) => {
+  return new Promise((resolve, reject) => {
+    const socket = new net.Socket();
+    
+    socket.setTimeout(5000);
+    
+    socket.on('connect', () => {
+      socket.destroy();
+      console.log(`Conexión exitosa al proxy: ${hostname}:${port}`);
+      resolve(true);
+    });
+    
+    socket.on('timeout', () => {
+      socket.destroy();
+      console.error(`Timeout conectando al proxy: ${hostname}:${port}`);
+      reject(new Error('Proxy connection timeout'));
+    });
+    
+    socket.on('error', (error) => {
+      console.error(`Error conectando al proxy: ${hostname}:${port}`, error);
+      reject(error);
+    });
+    
+    socket.connect(port, hostname);
+  });
+};
 
 // Configuración de la conexión
 const dbConfig = {
@@ -40,6 +69,16 @@ if (fixieConfig && fixieConfig.auth) {
 // Función para obtener una conexión
 export async function getConnection() {
   try {
+    // Prueba la conexión del proxy si está configurado
+    if (fixieConfig) {
+      try {
+        await testProxyConnection(fixieConfig.hostname, parseInt(fixieConfig.port || '80'));
+      } catch (proxyError) {
+        console.error('Error con la conexión del proxy:', proxyError);
+        // Puedes decidir si quieres continuar o lanzar un error
+      }
+    }
+
     const connection = await mysql.createConnection(dbConfig);
     return connection;
   } catch (error) {
