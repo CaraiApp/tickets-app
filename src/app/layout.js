@@ -1,4 +1,14 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from 'next/font/google'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="es" className={inter.className}>
+      <body>{children}</body>
+    </html>
+  )
+}
 import "./globals.css";
 
 const geistSans = Geist({
