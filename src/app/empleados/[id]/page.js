@@ -14,54 +14,147 @@ export default function PerfilEmpleado() {
   const [loading, setLoading] = useState(true);
   const [periodo, setPeriodo] = useState('todo'); // todo, mes, año
   const [expandedTickets, setExpandedTickets] = useState([]);
+  const [menuAccionesAbierto, setMenuAccionesAbierto] = useState(false);
+  const [estadisticasMensualesAbiertas, setEstadisticasMensualesAbiertas] = useState(false);
 
   useEffect(() => {
     async function fetchEmpleadoData() {
       try {
-        const { data, error } = await supabase
+        // 1. Obtener datos básicos del empleado
+        const { data: empleadoData, error: empleadoError } = await supabase
           .from('empleados')
-          .select('*, tickets(id, fecha, total, items_ticket(descripcion, precio))')
+          .select('*')
           .eq('id', id)
           .single();
-
-        if (error) throw error;
-
-        setEmpleado(data);
-        setTickets(data.tickets || []);
+  
+        if (empleadoError) throw empleadoError;
+        setEmpleado(empleadoData);
+  
+        // 2. Obtener tickets del empleado
+        const { data: ticketsData, error: ticketsError } = await supabase
+          .from('tickets')
+          .select('*')
+          .eq('empleado_id', id);
+  
+        if (ticketsError) throw ticketsError;
         
-        // Calcular estadísticas
-        const totalGastado = data.tickets.reduce((sum, t) => sum + t.total, 0);
-        const numeroTickets = data.tickets.length;
-        const productos = {};
+        // 3. Para cada ticket, obtener sus items
+        const ticketsWithItems = await Promise.all(
+          ticketsData.map(async (ticket) => {
+            const { data: itemsData, error: itemsError } = await supabase
+              .from('items_ticket')
+              .select('*')
+              .eq('ticket_id', ticket.id);
+              
+            if (itemsError) console.error('Error obteniendo items:', itemsError);
+            
+            return {
+              ...ticket,
+              items_ticket: itemsData || []
+            };
+          })
+        );
+  
+        setTickets(ticketsWithItems);
         
-        data.tickets.forEach(ticket => {
-          ticket.items_ticket.forEach(item => {
-            if (!productos[item.descripcion]) {
-              productos[item.descripcion] = { cantidad: 1, total: item.precio };
-            } else {
-              productos[item.descripcion].cantidad += 1;
-              productos[item.descripcion].total += item.precio;
+        // 4. Calcular estadísticas
+        if (ticketsWithItems.length > 0) {
+          let totalGastado = 0;
+          const productos = {};
+          const estadisticasMensuales = {};
+          const productosMensuales = {};
+  
+          ticketsWithItems.forEach(ticket => {
+            // Conversión segura de total
+            const ticketTotal = typeof ticket.total === 'string' 
+              ? parseFloat(ticket.total.replace('€', '').replace(',', '.')) 
+              : ticket.total || 0;
+            
+            // Obtener mes del ticket
+            const fechaTicket = new Date(ticket.fecha);
+            const mes = fechaTicket.toLocaleString('default', { month: 'long' });
+            const año = fechaTicket.getFullYear();
+            const mesAño = `${mes} ${año}`;
+            
+            // Acumular total global y por mes
+            totalGastado += ticketTotal;
+            estadisticasMensuales[mesAño] = (estadisticasMensuales[mesAño] || 0) + ticketTotal;
+            
+            // Procesamiento de productos
+            if (ticket.items_ticket && ticket.items_ticket.length > 0) {
+              ticket.items_ticket.forEach(item => {
+                const descripcion = item.descripcion;
+                const precio = typeof item.precio === 'string'
+                  ? parseFloat(item.precio.replace('€', '').replace(',', '.'))
+                  : item.precio || 0;
+                const cantidad = item.cantidad || 1;
+                
+                // Acumular productos globales
+                if (!productos[descripcion]) {
+                  productos[descripcion] = { cantidad, total: precio * cantidad };
+                } else {
+                  productos[descripcion].cantidad += cantidad;
+                  productos[descripcion].total += precio * cantidad;
+                }
+  
+                // Acumular productos mensuales
+                if (!productosMensuales[mesAño]) {
+                  productosMensuales[mesAño] = {};
+                }
+                if (!productosMensuales[mesAño][descripcion]) {
+                  productosMensuales[mesAño][descripcion] = { cantidad, total: precio * cantidad };
+                } else {
+                  productosMensuales[mesAño][descripcion].cantidad += cantidad;
+                  productosMensuales[mesAño][descripcion].total += precio * cantidad;
+                }
+              });
             }
           });
-        });
-
-        setEstadisticas({
-          totalGastado,
-          numeroTickets,
-          productosMasConsumidos: Object.entries(productos).map(([nombre, datos]) => ({
+  
+          // Convertir estadísticas mensuales a lista ordenada
+          const estadisticasMensualesOrdenadas = Object.entries(estadisticasMensuales)
+            .map(([mesAño, total]) => ({
+              mesAño,
+              total: total.toFixed(2) + '€'
+            }))
+            .sort((a, b) => {
+              // Ordenar por mes y año
+              const [mesA, añoA] = a.mesAño.split(' ');
+              const [mesB, añoB] = b.mesAño.split(' ');
+              return new Date(añoA, ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'].indexOf(mesA)) - 
+                     new Date(añoB, ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'].indexOf(mesB));
+            });
+  
+          const productosList = Object.entries(productos).map(([nombre, datos]) => ({
             nombre,
             cantidad: datos.cantidad,
-            total: datos.total.toFixed(2) + '€',
-          })),
-        });
-
+            total: datos.total.toFixed(2) + '€'
+          })).sort((a, b) => b.cantidad - a.cantidad);
+  
+          setEstadisticas({
+            totalGastado: totalGastado.toFixed(2) + '€',
+            numeroTickets: ticketsWithItems.length,
+            productosMasConsumidos: productosList,
+            estadisticasMensuales: estadisticasMensualesOrdenadas,
+            productosMensuales: productosMensuales
+          });
+        } else {
+          setEstadisticas({
+            totalGastado: '0.00€',
+            numeroTickets: 0,
+            productosMasConsumidos: [],
+            estadisticasMensuales: [],
+            productosMensuales: {}
+          });
+        }
+  
         setLoading(false);
       } catch (error) {
-        console.error('Error al obtener datos del empleado:', error);
+        console.error('Error completo:', error);
         setLoading(false);
       }
     }
-
+  
     fetchEmpleadoData();
   }, [id, periodo]);
 
@@ -142,21 +235,126 @@ export default function PerfilEmpleado() {
       </header>
 
       <div className="container mx-auto p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-          <h2 className="text-2xl font-bold mb-2">{empleado.nombre} {empleado.apellidos}</h2>
-          <p>DNI: {empleado.dni}</p>
-          <p>Teléfono: {empleado.telefono}</p>
+        {/* Nuevo bloque de estadísticas resumen */}
+        {estadisticas && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 grid grid-cols-2 gap-4">
+            <div className="text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Consumido</p>
+              <p className="text-2xl font-bold text-green-600">{estadisticas.totalGastado}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Número de Tickets</p>
+              <p className="text-2xl font-bold text-blue-600">{estadisticas.numeroTickets}</p>
+            </div>
+          </div>
+        )}
 
-          <div className="mt-4 flex justify-between">
-            <Link href={`/empleados/editar/${id}`} className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded">
+<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+  <div className="flex items-start">
+    {/* Información del empleado */}
+    <div className="flex-grow">
+      <h2 className="text-2xl font-bold mb-2">{empleado.nombre} {empleado.apellidos}</h2>
+      <p>DNI: {empleado.dni}</p>
+      <p>Teléfono: {empleado.telefono}</p>
+    </div>
+
+    {/* Firma del empleado */}
+    {empleado.firma_url && (
+      <div className="ml-4 w-48 h-24 border rounded overflow-hidden">
+        <img 
+          src={empleado.firma_url} 
+          alt="Firma de empleado" 
+          className="w-full h-full object-contain"
+        />
+      </div>
+    )}
+  </div>
+
+  <div className="mt-4 flex space-x-2">
+
+    {/* Botón de Escanear */}
+    <Link 
+      href={`/scanner?empleadoId=${id}`} 
+      className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
+    >
+      Escanear
+    </Link>
+
+    {/* Menú de acciones */}
+    <div className="relative w-full">
+      <button
+        onClick={() => setMenuAccionesAbierto(!menuAccionesAbierto)}
+        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded flex justify-between items-center"
+      >
+        <span>Acciones</span>
+        <svg 
+          className={`w-5 h-5 transition-transform ${menuAccionesAbierto ? 'transform rotate-180' : ''}`} 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {menuAccionesAbierto && (
+        <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-700 rounded-lg shadow-lg">
+          <div className="py-1">
+            <Link 
+              href={`/empleados/editar/${id}`} 
+              className="block px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-600"
+            >
               Editar
             </Link>
-            <button onClick={confirmarEliminar} className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded">
+            <button 
+              onClick={confirmarEliminar} 
+              className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600"
+            >
               Eliminar
             </button>
           </div>
         </div>
+      )}
+    </div>
+  </div>
+</div>
+{/* Estadísticas Mensuales */}
+{estadisticas && estadisticas.estadisticasMensuales.length > 0 && (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+    <button
+      onClick={() => setEstadisticasMensualesAbiertas(!estadisticasMensualesAbiertas)}
+      className="w-full bg-gray-100 dark:bg-gray-700 px-4 py-3 text-left flex justify-between items-center"
+    >
+      <h3 className="text-lg font-semibold">Consumo por Mes</h3>
+      <svg 
+        className={`w-5 h-5 transition-transform ${estadisticasMensualesAbiertas ? 'transform rotate-180' : ''}`} 
+        fill="none" 
+        viewBox="0 0 24 24" 
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
 
+    {estadisticasMensualesAbiertas && (
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {estadisticas.estadisticasMensuales.map((mes, index) => (
+          <div 
+            key={index} 
+            className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg"
+          >
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-300">
+              {mes.mesAño}
+            </p>
+            <p className="text-xl font-bold text-green-600">
+              {mes.total}
+            </p>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
         {/* Historial de Tickets */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Historial de Tickets</h3>
@@ -165,35 +363,50 @@ export default function PerfilEmpleado() {
           ) : (
             <div className="space-y-2">
               {tickets.map((ticket) => (
-                <div key={ticket.id} className="border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
-                  <button
-                    onClick={() => toggleTicket(ticket.id)}
-                    className="w-full bg-gray-100 dark:bg-gray-700 px-4 py-3 text-left flex justify-between items-center"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <span className="font-medium">
-                        Fecha: {new Date(ticket.fecha).toLocaleDateString()}
-                      </span>
-                      <span className="text-gray-600 dark:text-gray-300">
-                        Total: {ticket.total.toFixed(2)}€
-                      </span>
-                    </div>
-                  </button>
+  <div key={ticket.id} className="border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
+    <button
+      onClick={() => toggleTicket(ticket.id)}
+      className="w-full bg-gray-100 dark:bg-gray-700 px-4 py-3 text-left flex justify-between items-center"
+    >
+      <div className="flex items-center space-x-4">
+        <span className="font-medium">
+          Fecha: {new Date(ticket.fecha).toLocaleDateString()}
+        </span>
+        <span className="text-gray-600 dark:text-gray-300">
+          Total: {typeof ticket.total === 'number' ? ticket.total.toFixed(2) : ticket.total}€
+        </span>
+      </div>
+      <svg className={`w-5 h-5 transition-transform ${expandedTickets.includes(ticket.id) ? 'transform rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
 
-                  {expandedTickets.includes(ticket.id) && (
-                    <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-600">
-                      <ul>
-                        {ticket.items_ticket.map((item, index) => (
-                          <li key={index}>{item.descripcion} - {item.precio.toFixed(2)}€</li>
-                        ))}
-                      </ul>
-                      <button onClick={() => confirmarEliminarTicket(ticket.id)} className="text-red-500 hover:text-red-700">
-                        Eliminar Ticket
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+    {expandedTickets.includes(ticket.id) && (
+      <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-600">
+        {ticket.items_ticket && ticket.items_ticket.length > 0 ? (
+          <ul className="space-y-1">
+            {ticket.items_ticket.map((item, index) => (
+              <li key={index} className="flex justify-between">
+                <span>{item.descripcion}</span>
+                <span>{typeof item.precio === 'number' ? item.precio.toFixed(2) : parseFloat(item.precio).toFixed(2)}€</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-500">No hay detalles disponibles para este ticket</p>
+        )}
+        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <button 
+            onClick={() => confirmarEliminarTicket(ticket.id)} 
+            className="text-red-500 hover:text-red-700 text-sm"
+          >
+            Eliminar Ticket
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+))}
             </div>
           )}
         </div>

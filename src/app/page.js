@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import supabase from "@/lib/supabase";
+import supabase from '@/lib/supabase';
 
 export default function Home() {
   const [empleados, setEmpleados] = useState([]);
@@ -13,14 +13,12 @@ export default function Home() {
     async function fetchDatos() {
       setLoading(true);
       try {
-        // Obtener empleados con sus tickets
         const { data: empleadosData, error: empleadosError } = await supabase
           .from("empleados")
           .select("*, tickets(id, total)");
 
         if (empleadosError) throw empleadosError;
 
-        // Calcular número de tickets y total gastado por empleado
         const empleadosConTotales = empleadosData.map((empleado) => ({
           ...empleado,
           num_tickets: empleado.tickets ? empleado.tickets.length : 0,
@@ -31,7 +29,6 @@ export default function Home() {
 
         setEmpleados(empleadosConTotales);
 
-        // Obtener resumen general
         const totalEmpleados = empleadosConTotales.length;
         const totalTickets = empleadosConTotales.reduce((sum, e) => sum + e.num_tickets, 0);
         const totalGastado = empleadosConTotales.reduce((sum, e) => sum + e.total_gastado, 0);
@@ -62,33 +59,33 @@ export default function Home() {
       </header>
 
       <div className="container mx-auto p-4">
-        {/* Resumen General */}
+        {/* Resumen General (permanece igual) */}
         {resumen && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Resumen General</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded">
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Total Empleados</h4>
-                <p className="text-2xl font-bold">{resumen.totalEmpleados}</p>
-              </div>
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+    <h2 className="text-xl font-semibold mb-4">Resumen General</h2>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded text-center">
+        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Total Empleados</h4>
+        <p className="text-2xl font-bold">{resumen.totalEmpleados}</p>
+      </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded">
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Total Tickets</h4>
-                <p className="text-2xl font-bold">{resumen.totalTickets}</p>
-              </div>
+      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded text-center">
+        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Total Tickets</h4>
+        <p className="text-2xl font-bold">{resumen.totalTickets}</p>
+      </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded">
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Total Gastado</h4>
-                <p className="text-2xl font-bold">{resumen.totalGastado}€</p>
-              </div>
+      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded text-center">
+        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Total Gastado</h4>
+        <p className="text-2xl font-bold">{resumen.totalGastado}€</p>
+      </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded">
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Media por Empleado</h4>
-                <p className="text-2xl font-bold">{resumen.mediaPorEmpleado}€</p>
-              </div>
-            </div>
-          </div>
-        )}
+      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded text-center">
+        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Media por Empleado</h4>
+        <p className="text-2xl font-bold">{resumen.mediaPorEmpleado}€</p>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* Lista de Empleados */}
         <div className="mb-6 flex justify-between items-center">
@@ -104,9 +101,9 @@ export default function Home() {
             <p className="mt-2">Cargando datos...</p>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="space-y-4">
             {empleados.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+              <div className="bg-white dark:bg-gray-800 p-8 text-center text-gray-500 dark:text-gray-400 rounded-lg shadow">
                 <p>No hay empleados registrados aún.</p>
                 <p className="mt-2">
                   <Link href="/empleados/nuevo" className="text-blue-500 hover:underline">
@@ -115,49 +112,40 @@ export default function Home() {
                 </p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Nombre
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Tickets
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Total
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {empleados.map((empleado) => (
-                    <tr key={empleado.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900 dark:text-white">
-                          {empleado.nombre} {empleado.apellidos}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{empleado.num_tickets || 0}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {typeof empleado.total_gastado === "number"
+              empleados.map((empleado) => (
+                <div 
+                  key={empleado.id} 
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between"
+                >
+                  <div className="flex-grow">
+                    <div className="font-medium text-gray-900 dark:text-white mb-2">
+                      {empleado.nombre} {empleado.apellidos}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-300 flex space-x-4">
+                      <span>Tickets: {empleado.num_tickets || 0}</span>
+                      <span>
+                        Total: {typeof empleado.total_gastado === "number"
                           ? empleado.total_gastado.toFixed(2) + "€"
                           : "0.00€"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Link href={`/empleados/${empleado.id}`} className="text-blue-500 hover:text-blue-700 mr-4">
-                          Ver
-                        </Link>
-                        <Link href={`/scanner?empleadoId=${empleado.id}`} className="text-green-500 hover:text-green-700">
-                          Escanear
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-4 sm:mt-0 w-full sm:w-auto flex space-x-4 justify-start sm:justify-end">
+                    <Link 
+                      href={`/empleados/${empleado.id}`} 
+                      className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded text-sm"
+                    >
+                      Ver
+                    </Link>
+                    <Link 
+                      href={`/scanner?empleadoId=${empleado.id}`} 
+                      className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded text-sm"
+                    >
+                      Escanear
+                    </Link>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}

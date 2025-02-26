@@ -143,43 +143,85 @@ function Scanner() {
   };
 
   const guardarTicket = async () => {
-    if (!resultadosEditados || !empleadoId) return;
-
+    // Validaciones más estrictas
+    if (!resultadosEditados?.fecha || !resultadosEditados?.total) {
+      alert('Faltan datos obligatorios del ticket');
+      return;
+    }
+  
+    if (!empleadoId) {
+      alert('Debe seleccionar un empleado');
+      return;
+    }
+  
     try {
+      // Parseo robusto de fecha
+      let fechaTicket;
+      try {
+        // Intentar parsear diferentes formatos
+        const parsedDate = new Date(resultadosEditados.fecha);
+        
+        // Verificar si la fecha es válida
+        if (isNaN(parsedDate.getTime())) {
+          // Si no es válida, usar fecha actual
+          fechaTicket = new Date().toISOString();
+        } else {
+          fechaTicket = parsedDate.toISOString();
+        }
+      } catch (dateError) {
+        console.error('Error al parsear fecha:', dateError);
+        fechaTicket = new Date().toISOString();
+      }
+  
+      // Insertar ticket
       const { data: ticketData, error: ticketError } = await supabase
         .from("tickets")
-        .insert([
-          {
-            empleado_id: empleadoId,
-            fecha: resultadosEditados.fecha,
-            total: parseFloat(resultadosEditados.total.replace("€", "")),
-            imagen_url: capturedImage,
-          },
-        ])
+        .insert({
+          empleado_id: parseInt(empleadoId),
+          fecha: fechaTicket,
+          total: parseFloat(resultadosEditados.total.replace("€", "").replace(',', '.')),
+          imagen_url: capturedImage || null,
+        })
         .select();
-
-      if (ticketError) throw ticketError;
-
+  
+      if (ticketError) {
+        console.error('Error al insertar ticket:', ticketError);
+        throw ticketError;
+      }
+  
       const ticketId = ticketData[0].id;
-
-      const itemsToInsert = resultadosEditados.items.map((item) => ({
-        ticket_id: ticketId,
-        descripcion: item.name,
-        precio: parseFloat(item.price.replace("€", "")),
-        cantidad: 1,
-      }));
-
+  
+      // Preparar items con validaciones
+      const itemsToInsert = resultadosEditados.items
+        .filter(item => item.name && item.price) // Solo items con nombre y precio
+        .map((item) => ({
+          ticket_id: ticketId,
+          descripcion: item.name,
+          precio: parseFloat(item.price.replace("€", "").replace(',', '.')),
+          cantidad: 1,
+        }));
+  
+      if (itemsToInsert.length === 0) {
+        alert('Debe tener al menos un artículo en el ticket');
+        return;
+      }
+  
+      // Insertar items
       const { error: itemsError } = await supabase
         .from("items_ticket")
         .insert(itemsToInsert);
-
-      if (itemsError) throw itemsError;
-
+  
+      if (itemsError) {
+        console.error('Error al insertar items:', itemsError);
+        throw itemsError;
+      }
+  
       alert("Ticket guardado correctamente");
       router.push(`/empleados/${empleadoId}`);
+  
     } catch (error) {
-      console.error("Error al guardar ticket:", error);
-      alert("Error al guardar el ticket.");
+      console.error("Error completo al guardar ticket:", error);
+      alert(`Error al guardar el ticket: ${error.message || 'Error desconocido'}`);
     }
   };
 
@@ -232,13 +274,123 @@ function Scanner() {
           </div>
         )}
 
-        {results && (
-          <div className="mt-6">
+{results && (
+  <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+    <div className="flex justify-between items-center mb-4">
+      <h2 className="text-lg font-bold">Resultados</h2>
+      <button 
+        onClick={() => setEditandoResultados(!editandoResultados)}
+        className="text-blue-500 hover:text-blue-700"
+      >
+        {editandoResultados ? 'Cancelar Edición' : 'Editar Resultados'}
+      </button>
+    </div>
+    
+    <div className="space-y-4">
+      <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
+        <div className="flex items-center">
+          <span className="font-semibold mr-2">Total:</span>
+          {editandoResultados ? (
+            <input
+              type="text"
+              value={resultadosEditados.total}
+              onChange={(e) => setResultadosEditados({...resultadosEditados, total: e.target.value})}
+              className="px-2 py-1 border rounded"
+            />
+          ) : (
+            <span>{results.total}</span>
+          )}
+        </div>
+      </div>
+      
+      <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
+        <div className="flex items-center">
+          <span className="font-semibold mr-2">Fecha:</span>
+          {editandoResultados ? (
+            <input
+              type="text"
+              value={resultadosEditados.fecha}
+              onChange={(e) => setResultadosEditados({...resultadosEditados, fecha: e.target.value})}
+              className="px-2 py-1 border rounded"
+            />
+          ) : (
+            <span>{results.fecha}</span>
+          )}
+        </div>
+      </div>
+      
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <span className="font-semibold">Artículos:</span>
+          {editandoResultados && (
+            <button 
+              onClick={() => {
+                setResultadosEditados({
+                  ...resultadosEditados,
+                  items: [...resultadosEditados.items, { name: '', price: '0.00€' }]
+                });
+              }}
+              className="text-green-500 hover:text-green-700 text-sm"
+            >
+              + Añadir Artículo
+            </button>
+          )}
+        </div>
+        
+        <ul className="mt-2 space-y-2">
+          {(editandoResultados ? resultadosEditados.items : results.items)?.map((item, index) => (
+            <li key={index} className="p-2 bg-gray-100 dark:bg-gray-700 rounded flex justify-between items-center">
+              {editandoResultados ? (
+                <>
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => {
+                      const updatedItems = [...resultadosEditados.items];
+                      updatedItems[index] = { ...item, name: e.target.value };
+                      setResultadosEditados({...resultadosEditados, items: updatedItems});
+                    }}
+                    className="px-2 py-1 border rounded w-1/2"
+                  />
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      value={item.price}
+                      onChange={(e) => {
+                        const updatedItems = [...resultadosEditados.items];
+                        updatedItems[index] = { ...item, price: e.target.value };
+                        setResultadosEditados({...resultadosEditados, items: updatedItems});
+                      }}
+                      className="px-2 py-1 border rounded w-24"
+                    />
+                    <button 
+                      onClick={() => {
+                        const updatedItems = [...resultadosEditados.items];
+                        updatedItems.splice(index, 1);
+                        setResultadosEditados({...resultadosEditados, items: updatedItems});
+                      }}
+                      className="ml-2 text-red-500 hover:text-red-700"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span>{item.name}</span>
+                  <span>{item.price}</span>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </div>
+)}
             <button onClick={guardarTicket} className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded w-full">
               Guardar Ticket
             </button>
-          </div>
-        )}
       </main>
     </div>
   );

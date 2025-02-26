@@ -168,7 +168,7 @@ export default function EditarEmpleado() {
           </Link>
         </div>
       </header>
-
+  
       <div className="container mx-auto p-4 max-w-md">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -187,7 +187,7 @@ export default function EditarEmpleado() {
                 />
               </div>
             ))}
-
+  
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Firma
@@ -205,7 +205,7 @@ export default function EditarEmpleado() {
                 </button>
               )}
             </div>
-
+  
             <div className="flex justify-end">
               <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-6 rounded">
                 Guardar Cambios
@@ -214,6 +214,58 @@ export default function EditarEmpleado() {
           </form>
         </div>
       </div>
+  
+      {firmando && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-lg font-semibold mb-4">Firma del empleado</h2>
+            
+            <div className="border border-gray-300 rounded-md overflow-hidden mb-4">
+              <canvas
+                ref={canvasRef}
+                width={400}
+                height={200}
+                className="w-full bg-white"
+                onMouseDown={comenzarDibujo}
+                onMouseMove={dibujar}
+                onMouseUp={terminarDibujo}
+                onMouseLeave={terminarDibujo}
+                onTouchStart={comenzarDibujo}
+                onTouchMove={dibujar}
+                onTouchEnd={terminarDibujo}
+              />
+            </div>
+            
+            <div className="flex justify-between">
+              <button
+                type="button"
+                onClick={limpiarFirma}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded"
+              >
+                Limpiar
+              </button>
+              
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setFirmando(false)}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded mr-2"
+                >
+                  Cancelar
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={guardarFirma}
+                  className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

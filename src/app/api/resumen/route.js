@@ -1,71 +1,38 @@
+// src/app/api/resumen/route.js
 import { NextResponse } from 'next/server';
 import supabase from '@/lib/supabase';
 
 export async function GET() {
   try {
     // Obtener total de empleados
-    const { count: totalEmpleados, error: errorEmpleados } = await supabase
+    const { data: empleados, error: empError } = await supabase
       .from('empleados')
-      .select('*', { count: 'exact', head: true });
+      .select('id');
     
-    if (errorEmpleados) {
-      console.error('Error al obtener empleados:', errorEmpleados);
-      return NextResponse.json(
-        { error: errorEmpleados.message },
-        { status: 500 }
-      );
-    }
+    if (empError) throw empError;
+    const totalEmpleados = empleados.length;
     
-    // Obtener total de tickets
-    const { count: totalTickets, error: errorTickets } = await supabase
-      .from('tickets')
-      .select('*', { count: 'exact', head: true });
-    
-    if (errorTickets) {
-      console.error('Error al obtener tickets:', errorTickets);
-      return NextResponse.json(
-        { error: errorTickets.message },
-        { status: 500 }
-      );
-    }
-    
-    // Obtener suma de totales de tickets
-    const { data: dataTickets, error: errorSuma } = await supabase
+    // Obtener total de tickets y gasto
+    const { data: tickets, error: ticketsError } = await supabase
       .from('tickets')
       .select('total');
     
-    if (errorSuma) {
-      console.error('Error al obtener suma de tickets:', errorSuma);
-      return NextResponse.json(
-        { error: errorSuma.message },
-        { status: 500 }
-      );
-    }
+    if (ticketsError) throw ticketsError;
+    const totalTickets = tickets.length;
+    const totalGastado = tickets.reduce((sum, t) => sum + (parseFloat(t.total) || 0), 0);
     
-    // Calcular el total gastado
-    const totalGastado = dataTickets.reduce((sum, ticket) => sum + (ticket.total || 0), 0);
-    
-    // Calcular media por empleado
+    // Media por empleado
     const mediaPorEmpleado = totalEmpleados > 0 ? (totalGastado / totalEmpleados) : 0;
     
-    // Obtener todos los items para calcular productos más consumidos
-    // (Supabase no soporta GROUP BY directamente como MySQL)
-    const { data: itemsData, error: errorItems } = await supabase
+    // Productos más consumidos
+    const { data: items, error: itemsError } = await supabase
       .from('items_ticket')
       .select('descripcion, precio');
     
-    if (errorItems) {
-      console.error('Error al obtener items:', errorItems);
-      return NextResponse.json(
-        { error: errorItems.message },
-        { status: 500 }
-      );
-    }
+    if (itemsError) throw itemsError;
     
-    // Calcular productos más consumidos manualmente
     const productosMap = {};
-    
-    itemsData.forEach(item => {
+    items.forEach(item => {
       if (!productosMap[item.descripcion]) {
         productosMap[item.descripcion] = {
           nombre: item.descripcion,
@@ -73,12 +40,10 @@ export async function GET() {
           total: 0
         };
       }
-      
       productosMap[item.descripcion].cantidad += 1;
-      productosMap[item.descripcion].total += item.precio || 0;
+      productosMap[item.descripcion].total += parseFloat(item.precio) || 0;
     });
     
-    // Convertir a array, ordenar y limitar a 5 resultados
     const productosMasConsumidos = Object.values(productosMap)
       .sort((a, b) => b.cantidad - a.cantidad)
       .slice(0, 5);
@@ -93,7 +58,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error al obtener resumen:', error);
     return NextResponse.json(
-      { error: 'Error al obtener el resumen general: ' + error.message },
+      { error: 'Error al obtener el resumen general' },
       { status: 500 }
     );
   }
