@@ -1,60 +1,57 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import supabase from "@/lib/supabase";
 
 export default function DetalleTicket() {
   const { id } = useParams();
+  const router = useRouter();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     async function fetchTicketData() {
       try {
-        const response = await fetch(`/api/tickets/${id}`);
-        if (response.ok) {
-          const data = await response.json();
-          setTicket(data.ticket);
-        } else {
-          console.error('Error al cargar datos del ticket');
-        }
+        const { data, error } = await supabase
+          .from("tickets")
+          .select("*, items_ticket(descripcion, precio, cantidad)")
+          .eq("id", id)
+          .single();
+
+        if (error) throw error;
+
+        setTicket(data);
       } catch (error) {
-        console.error('Error:', error);
+        console.error("Error al obtener el ticket:", error);
       } finally {
         setLoading(false);
       }
     }
-    
+
     fetchTicketData();
   }, [id]);
-  
+
   const confirmarEliminar = () => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este ticket?")) {
       eliminarTicket();
     }
   };
-  
+
   const eliminarTicket = async () => {
     try {
-      const response = await fetch(`/api/tickets/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        alert('Ticket eliminado correctamente');
-        // Redirigir al perfil del empleado
-        window.location.href = `/empleados/${ticket.empleado_id}`;
-      } else {
-        const data = await response.json();
-        alert(`Error: ${data.error || 'No se pudo eliminar el ticket'}`);
-      }
+      const { error } = await supabase.from("tickets").delete().eq("id", id);
+      if (error) throw error;
+
+      alert("Ticket eliminado correctamente");
+      router.push(`/empleados/${ticket.empleado_id}`);
     } catch (error) {
-      console.error('Error:', error);
-      alert('Error al eliminar el ticket');
+      console.error("Error al eliminar el ticket:", error);
+      alert("Error al eliminar el ticket");
     }
   };
-  
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -65,7 +62,7 @@ export default function DetalleTicket() {
       </div>
     );
   }
-  
+
   if (!ticket) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -77,7 +74,7 @@ export default function DetalleTicket() {
             </Link>
           </div>
         </header>
-        
+
         <div className="container mx-auto p-4">
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
             <p>El ticket no existe o ha sido eliminado.</p>
@@ -89,7 +86,7 @@ export default function DetalleTicket() {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <header className="p-4 bg-white dark:bg-gray-800 shadow">
@@ -100,7 +97,7 @@ export default function DetalleTicket() {
           </Link>
         </div>
       </header>
-      
+
       <div className="container mx-auto p-4 max-w-2xl">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
           <div className="flex justify-between items-start">
@@ -113,30 +110,25 @@ export default function DetalleTicket() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
-                  <p className="font-medium">{typeof ticket.total === 'number' ? ticket.total.toFixed(2) + '€' : ticket.total}</p>
+                  <p className="font-medium">
+                    {typeof ticket.total === "number" ? ticket.total.toFixed(2) + "€" : ticket.total}
+                  </p>
                 </div>
               </div>
             </div>
-            
-            <button 
-              onClick={confirmarEliminar}
-              className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
-            >
+
+            <button onClick={confirmarEliminar} className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded">
               Eliminar Ticket
             </button>
           </div>
-          
+
           {ticket.imagen_url && (
             <div className="my-6 border rounded p-2">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Imagen del Ticket</p>
-              <img 
-                src={ticket.imagen_url} 
-                alt="Ticket" 
-                className="max-w-full h-auto max-h-96 mx-auto"
-              />
+              <img src={ticket.imagen_url} alt="Ticket" className="max-w-full h-auto max-h-96 mx-auto" />
             </div>
           )}
-          
+
           <div className="mt-6">
             <h3 className="text-lg font-semibold mb-2">Artículos</h3>
             <div className="bg-gray-50 dark:bg-gray-700 rounded overflow-hidden">
@@ -155,17 +147,13 @@ export default function DetalleTicket() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                  {ticket.items.map((item, index) => (
+                  {ticket.items_ticket.map((item, index) => (
                     <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-600">
-                      <td className="px-6 py-4 whitespace-normal break-words">
-                        {item.descripcion}
-                      </td>
-                      <td className="px-6 py-4">
-                        {item.cantidad || 1}
-                      </td>
+                      <td className="px-6 py-4 whitespace-normal break-words">{item.descripcion}</td>
+                      <td className="px-6 py-4">{item.cantidad || 1}</td>
                       <td className="px-6 py-4 text-right">
-  {typeof item.precio === 'number' ? item.precio.toFixed(2) + '€' : item.precio}
-</td>
+                        {typeof item.precio === "number" ? item.precio.toFixed(2) + "€" : item.precio}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -175,8 +163,8 @@ export default function DetalleTicket() {
                       Total:
                     </td>
                     <td className="px-6 py-3 text-right font-bold">
-  {typeof ticket.total === 'number' ? ticket.total.toFixed(2) + '€' : ticket.total}
-</td>
+                      {typeof ticket.total === "number" ? ticket.total.toFixed(2) + "€" : ticket.total}
+                    </td>
                   </tr>
                 </tfoot>
               </table>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import supabase from "@/lib/supabase";
 
 export default function Home() {
   const [empleados, setEmpleados] = useState([]);
@@ -12,28 +13,43 @@ export default function Home() {
     async function fetchDatos() {
       setLoading(true);
       try {
-        // Obtener empleados
-        const responseEmpleados = await fetch('/api/empleados');
-        let datosEmpleados = [];
-        
-        if (responseEmpleados.ok) {
-          datosEmpleados = await responseEmpleados.json();
-          setEmpleados(datosEmpleados);
-        }
-        
+        // Obtener empleados con sus tickets
+        const { data: empleadosData, error: empleadosError } = await supabase
+          .from("empleados")
+          .select("*, tickets(id, total)");
+
+        if (empleadosError) throw empleadosError;
+
+        // Calcular número de tickets y total gastado por empleado
+        const empleadosConTotales = empleadosData.map((empleado) => ({
+          ...empleado,
+          num_tickets: empleado.tickets ? empleado.tickets.length : 0,
+          total_gastado: empleado.tickets
+            ? empleado.tickets.reduce((sum, t) => sum + t.total, 0)
+            : 0,
+        }));
+
+        setEmpleados(empleadosConTotales);
+
         // Obtener resumen general
-        const responseResumen = await fetch('/api/resumen');
-        if (responseResumen.ok) {
-          const datosResumen = await responseResumen.json();
-          setResumen(datosResumen);
-        }
+        const totalEmpleados = empleadosConTotales.length;
+        const totalTickets = empleadosConTotales.reduce((sum, e) => sum + e.num_tickets, 0);
+        const totalGastado = empleadosConTotales.reduce((sum, e) => sum + e.total_gastado, 0);
+        const mediaPorEmpleado = totalEmpleados > 0 ? (totalGastado / totalEmpleados).toFixed(2) : 0;
+
+        setResumen({
+          totalEmpleados,
+          totalTickets,
+          totalGastado: totalGastado.toFixed(2),
+          mediaPorEmpleado,
+        });
       } catch (error) {
-        console.error('Error:', error);
+        console.error("Error al obtener los datos:", error);
       } finally {
         setLoading(false);
       }
     }
-    
+
     fetchDatos();
   }, []);
 
@@ -50,23 +66,22 @@ export default function Home() {
         {resumen && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Resumen General</h2>
-            
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded">
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Total Empleados</h4>
                 <p className="text-2xl font-bold">{resumen.totalEmpleados}</p>
               </div>
-              
+
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded">
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Total Tickets</h4>
                 <p className="text-2xl font-bold">{resumen.totalTickets}</p>
               </div>
-              
+
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded">
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Total Gastado</h4>
                 <p className="text-2xl font-bold">{resumen.totalGastado}€</p>
               </div>
-              
+
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded">
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-300">Media por Empleado</h4>
                 <p className="text-2xl font-bold">{resumen.mediaPorEmpleado}€</p>
@@ -74,14 +89,11 @@ export default function Home() {
             </div>
           </div>
         )}
-      
+
         {/* Lista de Empleados */}
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-xl font-semibold">Empleados</h2>
-          <Link 
-            href="/empleados/nuevo" 
-            className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
-          >
+          <Link href="/empleados/nuevo" className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded">
             Añadir Empleado
           </Link>
         </div>
@@ -97,10 +109,7 @@ export default function Home() {
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                 <p>No hay empleados registrados aún.</p>
                 <p className="mt-2">
-                  <Link 
-                    href="/empleados/nuevo" 
-                    className="text-blue-500 hover:underline"
-                  >
+                  <Link href="/empleados/nuevo" className="text-blue-500 hover:underline">
                     Añade tu primer empleado
                   </Link>
                 </p>
@@ -127,27 +136,21 @@ export default function Home() {
                   {empleados.map((empleado) => (
                     <tr key={empleado.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900 dark:text-white">{empleado.nombre} {empleado.apellidos}</div>
+                        <div className="font-medium text-gray-900 dark:text-white">
+                          {empleado.nombre} {empleado.apellidos}
+                        </div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">{empleado.num_tickets || 0}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {empleado.num_tickets || 0}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {typeof empleado.total_gastado === 'number' 
-                          ? empleado.total_gastado.toFixed(2) + '€' 
-                          : (empleado.total_gastado || '0.00€')}
+                        {typeof empleado.total_gastado === "number"
+                          ? empleado.total_gastado.toFixed(2) + "€"
+                          : "0.00€"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Link 
-                          href={`/empleados/${empleado.id}`}
-                          className="text-blue-500 hover:text-blue-700 mr-4"
-                        >
+                        <Link href={`/empleados/${empleado.id}`} className="text-blue-500 hover:text-blue-700 mr-4">
                           Ver
                         </Link>
-                        <Link 
-                          href={`/scanner?empleadoId=${empleado.id}`}
-                          className="text-green-500 hover:text-green-700"
-                        >
+                        <Link href={`/scanner?empleadoId=${empleado.id}`} className="text-green-500 hover:text-green-700">
                           Escanear
                         </Link>
                       </td>

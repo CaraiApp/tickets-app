@@ -1,6 +1,55 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import supabase from '@/lib/supabase';
 
+// POST /api/empleados - Crear un empleado nuevo
+export async function POST(request) {
+  try {
+    const data = await request.json();
+    const { nombre, apellidos, dni, telefono, firma } = data;
+    
+    console.log("Datos recibidos:", data); // Para debugging
+    
+    // Validaciones básicas
+    if (!nombre || !apellidos || !dni) {
+      return NextResponse.json(
+        { error: 'Faltan campos obligatorios' },
+        { status: 400 }
+      );
+    }
+    
+    // Insertar empleado
+    const { data: newEmpleado, error } = await supabase
+      .from('empleados')
+      .insert([
+        { nombre, apellidos, dni, telefono, firma_url: firma }
+      ])
+      .select();
+    
+    if (error) {
+      console.error("Error de Supabase:", error);
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
+    
+    console.log("Empleado creado:", newEmpleado);
+    
+    return NextResponse.json({ 
+      id: newEmpleado?.[0]?.id,
+      ...data,
+      success: true
+    });
+  } catch (error) {
+    console.error('Error al crear empleado:', error);
+    return NextResponse.json(
+      { error: 'Error al crear el empleado: ' + error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/empleados/[id] - Actualizar un empleado
 export async function PUT(request, { params }) {
   try {
     const { id } = params;
@@ -16,12 +65,21 @@ export async function PUT(request, { params }) {
     }
     
     // Actualizar empleado en la base de datos
-    const result = await query(
-      'UPDATE empleados SET nombre = ?, apellidos = ?, dni = ?, telefono = ?, firma_url = ? WHERE id = ?',
-      [nombre, apellidos, dni, telefono, firma, id]
-    );
+    const { data: updatedEmpleado, error } = await supabase
+      .from('empleados')
+      .update({ nombre, apellidos, dni, telefono, firma_url: firma })
+      .eq('id', id)
+      .select();
     
-    if (result.affectedRows === 0) {
+    if (error) {
+      console.error("Error de Supabase:", error);
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
+    
+    if (!updatedEmpleado || updatedEmpleado.length === 0) {
       return NextResponse.json(
         { error: 'Empleado no encontrado o no se realizaron cambios' },
         { status: 404 }
@@ -45,24 +103,60 @@ export async function PUT(request, { params }) {
   }
 }
 
+// DELETE /api/empleados/[id] - Eliminar un empleado
 export async function DELETE(request, { params }) {
   try {
     const { id } = params;
     
     // Primero, eliminar todos los artículos de los tickets del empleado
-    await query(`
-      DELETE it FROM items_ticket it
-      JOIN tickets t ON it.ticket_id = t.id
-      WHERE t.empleado_id = ?
-    `, [id]);
+    const { error: itemsError } = await supabase
+      .from('items_ticket')
+      .delete()
+      .in('ticket_id', 
+        supabase
+          .from('tickets')
+          .select('id')
+          .eq('empleado_id', id)
+      );
+    
+    if (itemsError) {
+      console.error("Error al eliminar items de tickets:", itemsError);
+      return NextResponse.json(
+        { error: itemsError.message },
+        { status: 500 }
+      );
+    }
     
     // Luego, eliminar los tickets del empleado
-    await query('DELETE FROM tickets WHERE empleado_id = ?', [id]);
+    const { error: ticketsError } = await supabase
+      .from('tickets')
+      .delete()
+      .eq('empleado_id', id);
+    
+    if (ticketsError) {
+      console.error("Error al eliminar tickets:", ticketsError);
+      return NextResponse.json(
+        { error: ticketsError.message },
+        { status: 500 }
+      );
+    }
     
     // Finalmente, eliminar al empleado
-    const result = await query('DELETE FROM empleados WHERE id = ?', [id]);
+    const { error: empleadoError, count } = await supabase
+      .from('empleados')
+      .delete()
+      .eq('id', id)
+      .select('count');
     
-    if (result.affectedRows === 0) {
+    if (empleadoError) {
+      console.error("Error al eliminar empleado:", empleadoError);
+      return NextResponse.json(
+        { error: empleadoError.message },
+        { status: 500 }
+      );
+    }
+    
+    if (count === 0) {
       return NextResponse.json(
         { error: 'Empleado no encontrado' },
         { status: 404 }
@@ -73,18 +167,31 @@ export async function DELETE(request, { params }) {
   } catch (error) {
     console.error('Error al eliminar empleado:', error);
     return NextResponse.json(
-      { error: 'Error al eliminar el empleado' },
+      { error: 'Error al eliminar el empleado: ' + error.message },
       { status: 500 }
     );
   }
 }
+
 // GET /api/empleados/[id] - Obtener un empleado específico
 export async function GET(request, { params }) {
   try {
     const { id } = params;
     
     // Obtener datos del empleado
-    const [empleado] = await query('SELECT * FROM empleados WHERE id = ?', [id]);
+    const { data: empleado, error: empleadoError } = await supabase
+      .from('empleados')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (empleadoError) {
+      console.error("Error al obtener empleado:", empleadoError);
+      return NextResponse.json(
+        { error: empleadoError.message },
+        { status: 500 }
+      );
+    }
     
     if (!empleado) {
       return NextResponse.json(
@@ -94,30 +201,92 @@ export async function GET(request, { params }) {
     }
     
     // Obtener tickets del empleado
-    const tickets = await query('SELECT * FROM tickets WHERE empleado_id = ? ORDER BY fecha DESC', [id]);
+    const { data: tickets, error: ticketsError } = await supabase
+      .from('tickets')
+      .select('*')
+      .eq('empleado_id', id)
+      .order('fecha', { ascending: false });
+    
+    if (ticketsError) {
+      console.error("Error al obtener tickets:", ticketsError);
+      return NextResponse.json(
+        { error: ticketsError.message },
+        { status: 500 }
+      );
+    }
     
     // Obtener items de los tickets
     for (const ticket of tickets) {
-      ticket.items = await query('SELECT * FROM items_ticket WHERE ticket_id = ?', [ticket.id]);
+      const { data: items, error: itemsError } = await supabase
+        .from('items_ticket')
+        .select('*')
+        .eq('ticket_id', ticket.id);
+      
+      if (itemsError) {
+        console.error("Error al obtener items de ticket:", itemsError);
+        continue;
+      }
+      
+      ticket.items = items || [];
     }
     
-    // Obtener estadísticas
-    const [estadisticas] = await query(`
-      SELECT COUNT(id) as total_tickets, SUM(total) as total_gastado
-      FROM tickets
-      WHERE empleado_id = ?
-    `, [id]);
+    // Obtener estadísticas (total tickets y total gastado)
+    const { data: estadisticasData, error: estadisticasError } = await supabase
+      .from('tickets')
+      .select('id, total')
+      .eq('empleado_id', id);
     
-    // Obtener productos más consumidos
-    const productosMasConsumidos = await query(`
-      SELECT descripcion as nombre, COUNT(*) as cantidad, SUM(precio) as total
-      FROM items_ticket it
-      JOIN tickets t ON it.ticket_id = t.id
-      WHERE t.empleado_id = ?
-      GROUP BY descripcion
-      ORDER BY cantidad DESC
-      LIMIT 5
-    `, [id]);
+    if (estadisticasError) {
+      console.error("Error al obtener estadísticas:", estadisticasError);
+      return NextResponse.json(
+        { error: estadisticasError.message },
+        { status: 500 }
+      );
+    }
+    
+    const estadisticas = {
+      total_tickets: estadisticasData.length,
+      total_gastado: estadisticasData.reduce((sum, ticket) => sum + (ticket.total || 0), 0)
+    };
+    
+    // Obtener productos más consumidos (esto es más complejo en Supabase)
+    // Aquí usamos un enfoque diferente ya que Supabase no soporta JOINs complejos como MySQL
+    const { data: todosItems, error: itemsConsumidosError } = await supabase
+      .from('items_ticket')
+      .select('descripcion, precio, ticket_id')
+      .in('ticket_id', 
+        supabase
+          .from('tickets')
+          .select('id')
+          .eq('empleado_id', id)
+      );
+    
+    if (itemsConsumidosError) {
+      console.error("Error al obtener productos consumidos:", itemsConsumidosError);
+      return NextResponse.json(
+        { error: itemsConsumidosError.message },
+        { status: 500 }
+      );
+    }
+    
+    // Procesamos los productos más consumidos manualmente
+    const productosMap = {};
+    todosItems.forEach(item => {
+      if (!productosMap[item.descripcion]) {
+        productosMap[item.descripcion] = {
+          nombre: item.descripcion,
+          cantidad: 0,
+          total: 0
+        };
+      }
+      
+      productosMap[item.descripcion].cantidad += 1;
+      productosMap[item.descripcion].total += item.precio || 0;
+    });
+    
+    const productosMasConsumidos = Object.values(productosMap)
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 5);
     
     return NextResponse.json({
       empleado,
@@ -131,7 +300,7 @@ export async function GET(request, { params }) {
   } catch (error) {
     console.error('Error al obtener datos del empleado:', error);
     return NextResponse.json(
-      { error: 'Error al obtener los datos del empleado' },
+      { error: 'Error al obtener los datos del empleado: ' + error.message },
       { status: 500 }
     );
   }

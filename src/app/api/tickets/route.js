@@ -1,5 +1,6 @@
+// src/app/api/tickets/route.js
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import supabase from '@/lib/supabase';
 
 // POST /api/tickets - Guardar un nuevo ticket
 export async function POST(request) {
@@ -16,27 +17,41 @@ export async function POST(request) {
     }
     
     // Insertar ticket
-    const ticketResult = await query(
-      'INSERT INTO tickets (empleado_id, fecha, total, imagen_url) VALUES (?, ?, ?, ?)',
-      [empleadoId, fecha, parseFloat(total.replace('€', '')), imagen]
-    );
+    const { data: ticketData, error: ticketError } = await supabase
+      .from('tickets')
+      .insert([{
+        empleado_id: empleadoId,
+        fecha,
+        total: parseFloat(total.replace('€', '')),
+        imagen_url: imagen
+      }])
+      .select();
     
-    const ticketId = ticketResult.insertId;
+    if (ticketError) throw ticketError;
+    
+    const ticketId = ticketData[0].id;
     
     // Insertar items del ticket
-    for (const item of items) {
-      await query(
-        'INSERT INTO items_ticket (ticket_id, descripcion, precio) VALUES (?, ?, ?)',
-        [ticketId, item.name, parseFloat(item.price.replace('€', ''))]
-      );
-    }
+    const itemsToInsert = items.map(item => ({
+      ticket_id: ticketId,
+      descripcion: item.name,
+      precio: parseFloat(item.price.replace('€', '')),
+      cantidad: 1
+    }));
+    
+    const { error: itemsError } = await supabase
+      .from('items_ticket')
+      .insert(itemsToInsert);
+    
+    if (itemsError) throw itemsError;
     
     return NextResponse.json({ 
       id: ticketId,
       empleadoId,
       fecha,
       total,
-      items
+      items,
+      success: true
     });
   } catch (error) {
     console.error('Error al guardar ticket:', error);
