@@ -2,11 +2,16 @@ import mysql from 'mysql2/promise';
 
 // Configuración de la conexión
 const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'tickets_app',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '35831'),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  connectTimeout: 10000, // 10 segundos
+  ssl: {
+    // Si tu base de datos requiere SSL
+    rejectUnauthorized: false
+  }
 };
 
 // Función para obtener una conexión
