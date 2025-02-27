@@ -43,6 +43,7 @@ function Scanner() {
   
   /** @type {Object} */
   const [resultadosEditados, setResultadosEditados] = useState(null);
+  const [mostrarModalExito, setMostrarModalExito] = useState(false);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -68,6 +69,17 @@ function Scanner() {
     }
   }, [empleadoId]);
 
+  useEffect(() => {
+    // Verificar permiso de cámara en caché (añadir este bloque)
+    const permisoGuardado = localStorage.getItem('camera_permission');
+    
+    if (!permisoGuardado) {
+      startCamera();
+    } else if (permisoGuardado === 'true') {
+      startCamera();
+    }
+  }, []);
+
   // Clean up camera on unmount
   useEffect(() => {
     return () => {
@@ -83,20 +95,26 @@ function Scanner() {
   }, [results]);
 
   const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+    });
 
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.error("Error al acceder a la cámara:", err);
-      alert("No se pudo acceder a la cámara. Verifica los permisos.");
+    // Guardar permiso en localStorage
+    localStorage.setItem('camera_permission', 'true');
+
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
     }
-  };
+  } catch (err) {
+    // Guardar permiso denegado en localStorage
+    localStorage.setItem('camera_permission', 'false');
+    
+    console.error("Error al acceder a la cámara:", err);
+    alert("No se pudo acceder a la cámara. Verifica los permisos.");
+  }
+};
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -198,8 +216,11 @@ function Scanner() {
         throw itemsError;
       }
   
-      alert("Ticket guardado correctamente");
-      router.push(`/empleados/${empleadoId}`);
+      // Sustituir el alert por:
+      setMostrarModalExito(true);
+      setTimeout(() => {
+        router.push(`/empleados/${empleadoId}`);
+      }, 1500);
     } catch (error) {
       console.log("Error completo:", error);
       alert(`Error al guardar el ticket: ${error.message}`);
@@ -391,6 +412,31 @@ function Scanner() {
           </div>
         )}
       </main>
+      {/* Añadir este bloque justo antes del último </div> */}
+{mostrarModalExito && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+      <svg 
+        className="mx-auto mb-4 w-16 h-16 text-green-500" 
+        fill="none" 
+        stroke="currentColor" 
+        viewBox="0 0 24 24" 
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          strokeWidth={2} 
+          d="M5 13l4 4L19 7" 
+        />
+      </svg>
+      <h2 className="text-2xl font-bold mb-4">Ticket Guardado</h2>
+      <p className="text-gray-600 dark:text-gray-300 mb-4">
+        El ticket se ha guardado correctamente
+      </p>
+    </div>
+  </div>
+)}
     </div>
   );
 }
