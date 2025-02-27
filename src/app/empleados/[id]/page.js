@@ -46,7 +46,7 @@ export default function PerfilEmpleado() {
   .from('tickets')
   .select('*')
   .eq('empleado_id', id)
-  .order('fecha', { ascending: false }) // Asegura que siempre estén ordenados del más reciente al más antiguo
+  .order('fecha', { ascending: true }) // Asegura que siempre estén ordenados del más reciente al más antiguo
   .limit(10);
   
         if (ticketsError) throw ticketsError;
