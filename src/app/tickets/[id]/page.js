@@ -10,6 +10,7 @@ export default function DetalleTicket() {
   const router = useRouter();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
 
   useEffect(() => {
     async function fetchTicketData() {
@@ -41,14 +42,7 @@ export default function DetalleTicket() {
 
   const eliminarTicket = async () => {
     try {
-      const { error } = await supabase
-        .from('tickets')
-        .delete()
-        .eq('id', id);
-  
-      if (error) throw error;
-  
-      // Eliminar también los items asociados al ticket
+      // Primero, eliminar los items del ticket
       const { error: itemsError } = await supabase
         .from('items_ticket')
         .delete()
@@ -56,13 +50,25 @@ export default function DetalleTicket() {
   
       if (itemsError) throw itemsError;
   
-      // Redirigir al perfil del empleado
-      router.push(`/empleados/${ticket.empleado_id}`);
-      
-      alert('Ticket eliminado correctamente');
+      // Luego, eliminar el ticket principal
+      const { error: ticketError } = await supabase
+        .from('tickets')
+        .delete()
+        .eq('id', id);
+  
+      if (ticketError) throw ticketError;
+  
+      // Mostrar modal de éxito
+      setMostrarConfirmacion(true);
+  
+      // Redirigir después de un breve tiempo
+      setTimeout(() => {
+        router.push(`/empleados/${ticket.empleado_id}`);
+      }, 1500);
+  
     } catch (error) {
-      console.log('Error al eliminar el ticket:', error);
-      alert('Error al eliminar el ticket');
+      console.error('Error completo al eliminar ticket:', error);
+      alert(`Error al eliminar el ticket: ${error.message || 'Error desconocido'}`);
     }
   };
 
@@ -203,6 +209,30 @@ export default function DetalleTicket() {
           </div>
         </div>
       </div>
+      {mostrarConfirmacion && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+      <svg 
+        className="mx-auto mb-4 w-16 h-16 text-green-500" 
+        fill="none" 
+        stroke="currentColor" 
+        viewBox="0 0 24 24" 
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          strokeWidth={2} 
+          d="M5 13l4 4L19 7" 
+        />
+      </svg>
+      <h2 className="text-2xl font-bold mb-4">Ticket Eliminado</h2>
+      <p className="text-gray-600 dark:text-gray-300 mb-4">
+        El ticket se ha eliminado correctamente
+      </p>
+    </div>
+  </div>
+)}
     </div>
   );
 }
