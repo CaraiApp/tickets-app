@@ -39,12 +39,12 @@ export default function DetalleTicket() {
     }
   };
 
-  const eliminarTicket = async (ticketId) => {
+  const eliminarTicket = async () => {
     try {
       const { error } = await supabase
         .from('tickets')
         .delete()
-        .eq('id', ticketId);
+        .eq('id', id);
   
       if (error) throw error;
   
@@ -52,22 +52,24 @@ export default function DetalleTicket() {
       const { error: itemsError } = await supabase
         .from('items_ticket')
         .delete()
-        .eq('ticket_id', ticketId);
+        .eq('ticket_id', id);
   
       if (itemsError) throw itemsError;
   
-      // Actualizar estado local de tickets
-      setTickets(tickets.filter(ticket => ticket.id !== ticketId));
+      // Redirigir al perfil del empleado
+      router.push(`/empleados/${ticket.empleado_id}`);
       
       alert('Ticket eliminado correctamente');
     } catch (error) {
-      // Método de registro seguro
-      if (typeof window !== 'undefined' && window.console && window.console.log) {
-        window.console.log('Error al eliminar el ticket:', error);
-      }
-      
+      console.log('Error al eliminar el ticket:', error);
       alert('Error al eliminar el ticket');
     }
+  };
+
+  // Añadir función para editar
+  const handleEditar = () => {
+    // Navegar a la página de edición de ticket
+    router.push(`/tickets/editar/${id}`);
   };
 
   if (loading) {
@@ -135,9 +137,20 @@ export default function DetalleTicket() {
               </div>
             </div>
 
-            <button onClick={confirmarEliminar} className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded">
-              Eliminar Ticket
-            </button>
+            <div className="flex space-x-2">
+              <button 
+                onClick={handleEditar} 
+                className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+              >
+                Editar
+              </button>
+              <button 
+                onClick={confirmarEliminar} 
+                className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
+              >
+                Eliminar
+              </button>
+            </div>
           </div>
 
           {ticket.imagen_url && (

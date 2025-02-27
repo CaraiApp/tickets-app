@@ -436,22 +436,36 @@ export default function PerfilEmpleado() {
             <div className="space-y-2">
               {tickets.map((ticket) => (
   <div key={ticket.id} className="border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
-    <button
-      onClick={() => toggleTicket(ticket.id)}
-      className="w-full bg-gray-100 dark:bg-gray-700 px-4 py-3 text-left flex justify-between items-center"
+    <Link 
+      href={`/tickets/${ticket.id}`} 
+      className="block w-full"
     >
-      <div className="flex items-center space-x-4">
-        <span className="font-medium">
-          Fecha: {new Date(ticket.fecha).toLocaleDateString()}
-        </span>
-        <span className="text-gray-600 dark:text-gray-300">
-          Total: {typeof ticket.total === 'number' ? ticket.total.toFixed(2) : ticket.total}€
-        </span>
-      </div>
-      <svg className={`w-5 h-5 transition-transform ${expandedTickets.includes(ticket.id) ? 'transform rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
+      <button
+        className="w-full bg-gray-100 dark:bg-gray-700 px-4 py-3 text-left flex justify-between items-center"
+      >
+        <div className="flex items-center space-x-4">
+          <span className="font-medium">
+            Fecha: {new Date(ticket.fecha).toLocaleDateString()}
+          </span>
+          <span className="text-gray-600 dark:text-gray-300">
+            Total: {typeof ticket.total === 'number' ? ticket.total.toFixed(2) : ticket.total}€
+          </span>
+        </div>
+        <svg 
+          className="w-5 h-5" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            strokeWidth={2} 
+            d="M9 5l7 7-7 7" 
+          />
+        </svg>
+      </button>
+    </Link>
 
     {expandedTickets.includes(ticket.id) && (
       <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-600">
