@@ -140,7 +140,7 @@ export default function EditarTicket() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <header className="p-4 bg-white dark:bg-gray-800 shadow">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold">Editar Ticket</h1>
@@ -150,8 +150,8 @@ export default function EditarTicket() {
         </div>
       </header>
 
-      <div className="container mx-auto p-4 max-w-2xl">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+      <div className="container mx-auto px-4 py-2 max-w-2xl">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -185,7 +185,7 @@ export default function EditarTicket() {
               <img 
                 src={imagenUrl} 
                 alt="Ticket" 
-                className="max-w-full h-auto max-h-96 mx-auto rounded-md" 
+                className="max-w-full h-auto max-h-96 mx-auto rounded-md object-contain" 
               />
               <input
                 type="text"
@@ -198,11 +198,11 @@ export default function EditarTicket() {
           )}
 
           <div className="mt-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Artículos</h3>
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold mb-2 sm:mb-0">Artículos</h3>
               <button
                 onClick={addItem}
-                className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
+                className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded w-full sm:w-auto"
               >
                 + Añadir Artículo
               </button>
@@ -212,51 +212,53 @@ export default function EditarTicket() {
               {items.map((item, index) => (
                 <div 
                   key={index} 
-                  className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg"
+                  className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg"
                 >
                   <input
                     type="text"
                     placeholder="Descripción"
                     value={item.descripcion}
                     onChange={(e) => updateItem(index, 'descripcion', e.target.value)}
-                    className="flex-grow px-3 py-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
+                    className="w-full sm:flex-grow px-3 py-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
                   />
-                  <input
-                    type="number"
-                    placeholder="Cantidad"
-                    value={item.cantidad}
-                    onChange={(e) => updateItem(index, 'cantidad', e.target.value)}
-                    min="1"
-                    className="w-24 px-3 py-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Precio"
-                    value={item.precio}
-                    onChange={(e) => updateItem(index, 'precio', e.target.value)}
-                    className="w-32 px-3 py-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
-                  />
-                  <button
-                    onClick={() => removeItem(index)}
-                    className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
-                  >
-                    &times;
-                  </button>
+                  <div className="w-full sm:w-auto flex space-x-2">
+                    <input
+                      type="number"
+                      placeholder="Cant."
+                      value={item.cantidad}
+                      onChange={(e) => updateItem(index, 'cantidad', e.target.value)}
+                      min="1"
+                      className="w-20 px-3 py-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Precio"
+                      value={item.precio}
+                      onChange={(e) => updateItem(index, 'precio', e.target.value)}
+                      className="w-24 px-3 py-2 border rounded-md dark:bg-gray-600 dark:border-gray-500"
+                    />
+                    <button
+                      onClick={() => removeItem(index)}
+                      className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
+                    >
+                      &times;
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end space-x-4">
+          <div className="mt-6 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
             <button
               onClick={() => router.push(`/tickets/${id}`)}
-              className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded"
+              className="w-full sm:w-auto bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded"
             >
               Cancelar
             </button>
             <button
               onClick={guardarCambios}
-              className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+              className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
             >
               Guardar Cambios
             </button>
@@ -267,7 +269,7 @@ export default function EditarTicket() {
       {/* Modal de Confirmación */}
       {mostrarConfirmacion && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl text-center max-w-sm w-full mx-4">
             <svg 
               className="mx-auto mb-4 w-16 h-16 text-green-500" 
               fill="none" 
