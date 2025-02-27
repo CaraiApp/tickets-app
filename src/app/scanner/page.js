@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import supabase from "@/lib/supabase";
+import NodeCache from 'node-cache';
 
 // Main component with Suspense
 export default function ScannerPage() {
@@ -26,6 +27,7 @@ function Scanner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const empleadoId = searchParams.get("empleadoId");
+  const cache = new NodeCache();
 
   // State variables
   const [empleado, setEmpleado] = useState(null);
@@ -87,19 +89,33 @@ function Scanner() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-
-      localStorage.setItem('camera_permission', 'true');
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      const permisoGuardado = cache.get('camera_permission');
+  
+      if (!permisoGuardado) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+  
+        cache.set('camera_permission', true);
+  
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } else {
+        // El permiso ya fue concedido anteriormente
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+  
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
       }
     } catch (err) {
-      localStorage.setItem('camera_permission', 'false');
-      
+      cache.set('camera_permission', false);
+  
       console.error("Error al acceder a la cámara:", err);
       alert("No se pudo acceder a la cámara. Verifica los permisos.");
     }
@@ -228,15 +244,14 @@ const { data: ticketData, error: ticketError } = await supabase
           {!capturedImage ? (
             <>
               <div className="flex-grow bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4">
-                <video 
-                  ref={videoRef} 
-                  autoPlay 
-                  playsInline 
-                  className="w-full h-full object-cover"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-
-                />
-              </div>
+    <video 
+    ref={videoRef} 
+    autoPlay 
+    playsInline 
+    className="w-full h-full object-cover"
+    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+  />
+</div>
               <button 
                 onClick={captureImage} 
                 className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-lg text-lg font-bold"
