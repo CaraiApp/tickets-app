@@ -27,21 +27,12 @@ function Scanner() {
   const router = useRouter();
   const empleadoId = searchParams.get("empleadoId");
 
-  // State variables with JSDoc comments for type hinting
-  /** @type {Object} */
+  // State variables
   const [empleado, setEmpleado] = useState(null);
-  
-  /** @type {string} */
   const [capturedImage, setCapturedImage] = useState(null);
-  
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  /** @type {Object} */
   const [results, setResults] = useState(null);
-  
   const [editandoResultados, setEditandoResultados] = useState(false);
-  
-  /** @type {Object} */
   const [resultadosEditados, setResultadosEditados] = useState(null);
   const [mostrarModalExito, setMostrarModalExito] = useState(false);
 
@@ -69,8 +60,8 @@ function Scanner() {
     }
   }, [empleadoId]);
 
+  // Iniciar cámara automáticamente
   useEffect(() => {
-    // Verificar permiso de cámara en caché (añadir este bloque)
     const permisoGuardado = localStorage.getItem('camera_permission');
     
     if (!permisoGuardado) {
@@ -95,26 +86,24 @@ function Scanner() {
   }, [results]);
 
   const startCamera = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
-    });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
 
-    // Guardar permiso en localStorage
-    localStorage.setItem('camera_permission', 'true');
+      localStorage.setItem('camera_permission', 'true');
 
-    streamRef.current = stream;
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      localStorage.setItem('camera_permission', 'false');
+      
+      console.error("Error al acceder a la cámara:", err);
+      alert("No se pudo acceder a la cámara. Verifica los permisos.");
     }
-  } catch (err) {
-    // Guardar permiso denegado en localStorage
-    localStorage.setItem('camera_permission', 'false');
-    
-    console.error("Error al acceder a la cámara:", err);
-    alert("No se pudo acceder a la cámara. Verifica los permisos.");
-  }
-};
+  };
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -145,7 +134,6 @@ function Scanner() {
   const processImage = async (imageData) => {
     setIsProcessing(true);
     try {
-      console.log("Enviando imagen para procesamiento...");
       const response = await fetch("/api/process-ticket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -178,7 +166,6 @@ function Scanner() {
     if (!resultadosEditados || !empleadoId) return;
   
     try {
-      // Convertir la fecha a un timestamp
       const fechaTimestamp = new Date(resultadosEditados.fecha);
   
       const { data: ticketData, error: ticketError } = await supabase
@@ -193,10 +180,7 @@ function Scanner() {
         ])
         .select();
   
-      if (ticketError) {
-        console.log("Error en ticket:", ticketError);
-        throw ticketError;
-      }
+      if (ticketError) throw ticketError;
   
       const ticketId = ticketData[0].id;
   
@@ -211,24 +195,20 @@ function Scanner() {
         .from("items_ticket")
         .insert(itemsToInsert);
   
-      if (itemsError) {
-        console.log("Error en items:", itemsError);
-        throw itemsError;
-      }
+      if (itemsError) throw itemsError;
   
-      // Sustituir el alert por:
       setMostrarModalExito(true);
       setTimeout(() => {
         router.push(`/empleados/${empleadoId}`);
       }, 1500);
     } catch (error) {
-      console.log("Error completo:", error);
+      console.error("Error al guardar el ticket:", error);
       alert(`Error al guardar el ticket: ${error.message}`);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <header className="p-4 bg-white dark:bg-gray-800 shadow">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold">Escáner de Tickets</h1>
@@ -243,28 +223,50 @@ function Scanner() {
         </div>
       </header>
 
-      <main className="container mx-auto p-4 max-w-md">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+      <main className="flex-grow container mx-auto px-4 py-4 max-w-md flex flex-col">
+        <div className="flex-grow bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col">
           {!capturedImage ? (
             <>
-              <div className="aspect-[4/3] bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
-                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+              <div className="flex-grow bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4">
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <button onClick={startCamera} className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded">
-                  Iniciar Cámara
-                </button>
-                <button onClick={captureImage} className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded">
-                  Capturar
-                </button>
-              </div>
+              <button 
+                onClick={captureImage} 
+                className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-lg text-lg font-bold"
+              >
+                Capturar Ticket
+              </button>
             </>
           ) : (
             <>
-              <img src={capturedImage} alt="Ticket capturado" className="w-full h-auto" />
-              <button onClick={resetCapture} className="mt-4 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded w-full">
-                Nueva Captura
-              </button>
+              <div className="flex-grow bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4">
+                <img 
+                  src={capturedImage} 
+                  alt="Ticket capturado" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={resetCapture} 
+                  className="bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg"
+                >
+                  Nueva Captura
+                </button>
+                {results && (
+                  <button 
+                    onClick={guardarTicket} 
+                    className="bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg"
+                  >
+                    Guardar Ticket
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -402,7 +404,7 @@ function Scanner() {
                 {results && (
                   <button 
                     onClick={guardarTicket} 
-                    className="mt-4 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded w-full"
+                    className="mt-4bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded w-full"
                   >
                     Guardar Ticket
                   </button>
@@ -412,31 +414,32 @@ function Scanner() {
           </div>
         )}
       </main>
-      {/* Añadir este bloque justo antes del último </div> */}
-{mostrarModalExito && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
-      <svg 
-        className="mx-auto mb-4 w-16 h-16 text-green-500" 
-        fill="none" 
-        stroke="currentColor" 
-        viewBox="0 0 24 24" 
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-          strokeWidth={2} 
-          d="M5 13l4 4L19 7" 
-        />
-      </svg>
-      <h2 className="text-2xl font-bold mb-4">Ticket Guardado</h2>
-      <p className="text-gray-600 dark:text-gray-300 mb-4">
-        El ticket se ha guardado correctamente
-      </p>
-    </div>
-  </div>
-)}
+
+      {/* Modal de éxito */}
+      {mostrarModalExito && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+            <svg 
+              className="mx-auto mb-4 w-16 h-16 text-green-500" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M5 13l4 4L19 7" 
+              />
+            </svg>
+            <h2 className="text-2xl font-bold mb-4">Ticket Guardado</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              El ticket se ha guardado correctamente
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
