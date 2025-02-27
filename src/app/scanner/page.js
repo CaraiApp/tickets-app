@@ -233,6 +233,8 @@ const { data: ticketData, error: ticketError } = await supabase
                   autoPlay 
                   playsInline 
                   className="w-full h-full object-cover"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+
                 />
               </div>
               <button 
