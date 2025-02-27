@@ -15,13 +15,14 @@ export default function TicketsEmpleado() {
   const [loading, setLoading] = useState(true);
   const [expandedTickets, setExpandedTickets] = useState([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [orderDirection, setOrderDirection] = useState('desc'); // 'desc' (más reciente primero) o 'asc' (más antiguo primero)
   
   const ticketsPerPage = 20;
 
   useEffect(() => {
     fetchTickets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, currentPage]);
+  }, [id, currentPage, orderDirection]);
 
   const fetchTickets = async () => {
     try {
@@ -57,7 +58,7 @@ export default function TicketsEmpleado() {
         .from('tickets')
         .select('*')
         .eq('empleado_id', id)
-        .order('fecha', { ascending: false })
+        .order('fecha', { ascending: orderDirection === 'asc' })
         .range(from, to);
       
       if (ticketsError) throw ticketsError;
@@ -99,6 +100,11 @@ export default function TicketsEmpleado() {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
     }
+  };
+
+  const toggleSortOrder = () => {
+    setOrderDirection(prev => prev === 'desc' ? 'asc' : 'desc');
+    setCurrentPage(1); // Volver a la primera página al cambiar el orden
   };
 
   const confirmarEliminarTicket = (ticketId) => {
@@ -179,15 +185,41 @@ export default function TicketsEmpleado() {
 
       <div className="container mx-auto p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+            <h2 className="text-lg font-semibold mb-2 sm:mb-0">
               Tickets ({totalTickets})
             </h2>
-            {totalPages > 1 && (
-              <div className="text-sm text-gray-500">
-                Mostrando página {currentPage} de {totalPages}
-              </div>
-            )}
+            
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+              {/* Botón de ordenación */}
+              <button
+                onClick={toggleSortOrder}
+                className="flex items-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-3 py-1 rounded text-sm"
+              >
+                <span className="mr-1">Ordenar por fecha:</span>
+                {orderDirection === 'desc' ? (
+                  <span className="flex items-center">
+                    Más reciente primero
+                    <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    Más antiguo primero
+                    <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </span>
+                )}
+              </button>
+              
+              {totalPages > 1 && (
+                <div className="text-sm text-gray-500">
+                  Página {currentPage} de {totalPages}
+                </div>
+              )}
+            </div>
           </div>
 
           {tickets.length === 0 ? (
