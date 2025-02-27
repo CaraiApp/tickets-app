@@ -283,16 +283,15 @@ function Scanner() {
       </header>
 
       <main className="flex-grow container mx-auto px-4 py-4 max-w-md flex flex-col">
-        <div className="flex-grow bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col mb-4">
           {!capturedImage ? (
             <>
-              <div className="flex-grow bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4">
+              <div className="bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4" style={{ height: '300px' }}>
                 <video 
                   ref={videoRef} 
                   autoPlay 
                   playsInline 
                   className="w-full h-full object-cover"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               </div>
               <button 
@@ -304,7 +303,7 @@ function Scanner() {
             </>
           ) : (
             <>
-              <div className="flex-grow bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4">
+              <div className="bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4" style={{ height: '300px' }}>
                 <img 
                   src={capturedImage} 
                   alt="Ticket capturado" 
@@ -332,14 +331,14 @@ function Scanner() {
         </div>
 
         {isProcessing && (
-          <div className="text-center mt-4">
+          <div className="text-center mt-4 mb-4">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
             <p className="mt-2">Procesando imagen...</p>
           </div>
         )}
 
         {results && (
-          <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-20">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold">Resultados</h2>
               <button 
@@ -378,7 +377,7 @@ function Scanner() {
                       className="px-2 py-1 border rounded"
                     />
                   ) : (
-                    <span>{new Date(results.fecha).toLocaleDateString()}</span>
+                    <span>{results.fecha && new Date(results.fecha).toLocaleDateString() || "Fecha no disponible"}</span>
                   )}
                 </div>
               </div>
@@ -447,57 +446,57 @@ function Scanner() {
                               setResultadosEditados({...resultadosEditados, items: updatedItems});
                             }}
                             className="ml-2 text-red-500 hover:text-red-700"
->
-×
-</button>
-</div>
-) : (
-<div className="flex justify-between w-full">
-<span>{item.quantity > 1 ? `${item.quantity}x ` : ''}{item.name}</span><span>{item.price}</span>
-</div>
-)}
-</li>
-))}
-</ul>
-{results && (
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between w-full">
+                          <span>{item.quantity > 1 ? `${item.quantity}x ` : ''}{item.name}</span>
+                          <span>{item.price}</span>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
               <button 
                 onClick={guardarTicket} 
-                className="mt-4 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded w-full"
+                className="mt-6 bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg w-full font-semibold"
               >
                 Guardar Ticket
               </button>
-            )}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Modal de éxito */}
+      {mostrarModalExito && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+            <svg 
+              className="mx-auto mb-4 w-16 h-16 text-green-500" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M5 13l4 4L19 7" 
+              />
+            </svg>
+            <h2 className="text-2xl font-bold mb-4">Ticket Guardado</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              El ticket se ha guardado correctamente
+            </p>
           </div>
         </div>
-      </div>
-    )}
-  </main>
-
-  {/* Modal de éxito */}
-  {mostrarModalExito && (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
-        <svg 
-          className="mx-auto mb-4 w-16 h-16 text-green-500" 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24" 
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M5 13l4 4L19 7" 
-          />
-        </svg>
-        <h2 className="text-2xl font-bold mb-4">Ticket Guardado</h2>
-        <p className="text-gray-600 dark:text-gray-300 mb-4">
-          El ticket se ha guardado correctamente
-        </p>
-      </div>
+      )}
     </div>
-  )}
-</div>
-);
+  );
 }
