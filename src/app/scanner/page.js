@@ -286,7 +286,7 @@ function Scanner() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col mb-4">
           {!capturedImage ? (
             <>
-              <div className="bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4" style={{ height: '300px' }}>
+              <div className="bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4" style={{ height: '500px' }}>
                 <video 
                   ref={videoRef} 
                   autoPlay 
