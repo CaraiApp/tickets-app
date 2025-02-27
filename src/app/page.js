@@ -8,14 +8,39 @@ export default function Home() {
   const [empleados, setEmpleados] = useState([]);
   const [resumen, setResumen] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Nuevos estados para filtros
+  const [filtroTiempo, setFiltroTiempo] = useState('todo'); // Opciones: 'todo', 'mes', 'año'
+  const [mesSeleccionado, setMesSeleccionado] = useState(new Date().getMonth() + 1);
+  const [añoSeleccionado, setAñoSeleccionado] = useState(new Date().getFullYear());
 
   useEffect(() => {
     async function fetchDatos() {
       setLoading(true);
       try {
-        const { data: empleadosData, error: empleadosError } = await supabase
-          .from("empleados")
-          .select("*, tickets(id, total)");
+        // Consulta base de empleados con tickets
+        let query = supabase.from("empleados").select("*, tickets(id, total, fecha)");
+
+        // Aplicar filtros de tiempo si no es 'todo'
+        if (filtroTiempo !== 'todo') {
+          // Convertir año y mes a fechas para filtrado
+          let fechaInicio, fechaFin;
+          
+          if (filtroTiempo === 'año') {
+            fechaInicio = new Date(añoSeleccionado, 0, 1);
+            fechaFin = new Date(añoSeleccionado, 11, 31, 23, 59, 59);
+          } else if (filtroTiempo === 'mes') {
+            // El mes es 0-indexed en JavaScript
+            fechaInicio = new Date(añoSeleccionado, mesSeleccionado - 1, 1);
+            fechaFin = new Date(añoSeleccionado, mesSeleccionado, 0, 23, 59, 59);
+          }
+
+          // Filtrar tickets dentro del rango de fechas
+          query = query.filter('tickets.fecha', 'gte', fechaInicio.toISOString())
+                       .filter('tickets.fecha', 'lte', fechaFin.toISOString());
+        }
+
+        const { data: empleadosData, error: empleadosError } = await query;
 
         if (empleadosError) throw empleadosError;
 
@@ -23,7 +48,9 @@ export default function Home() {
           ...empleado,
           num_tickets: empleado.tickets ? empleado.tickets.length : 0,
           total_gastado: empleado.tickets
-            ? empleado.tickets.reduce((sum, t) => sum + t.total, 0)
+            ? empleado.tickets.reduce((sum, t) => sum + (typeof t.total === 'string' 
+                ? parseFloat(t.total.replace('€', '')) 
+                : t.total), 0)
             : 0,
         }));
 
@@ -41,20 +68,76 @@ export default function Home() {
           mediaPorEmpleado,
         });
       } catch (error) {
-        console.error("Error al obtener los datos:", error);
+        // Manejo de error seguro
+        if (typeof window !== 'undefined' && window.console && window.console.log) {
+          window.console.log("Error al obtener los datos:", error);
+        }
+        
+        // Establecer valores por defecto en caso de error
+        setResumen({
+          totalEmpleados: 0,
+          totalTickets: 0,
+          totalGastado: '0.00',
+          mediaPorEmpleado: '0.00'
+        });
       } finally {
         setLoading(false);
       }
     }
 
     fetchDatos();
-  }, []);
+  }, [filtroTiempo, mesSeleccionado, añoSeleccionado]);
+
+  // Generar lista de años (desde 2020 hasta el año actual)
+  const añosDisponibles = Array.from(
+    { length: new Date().getFullYear() - 2020 + 1 }, 
+    (_, i) => 2020 + i
+  );
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <header className="p-4 bg-white dark:bg-gray-800 shadow">
-        <div className="container mx-auto">
+        <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold">Gestión de Tickets</h1>
+          <div className="flex space-x-2">
+            <select 
+              value={filtroTiempo}
+              onChange={(e) => setFiltroTiempo(e.target.value)}
+              className="px-2 py-1 border rounded"
+            >
+              <option value="todo">Todos los Tiempos</option>
+              <option value="mes">Este Mes</option>
+              <option value="año">Este Año</option>
+            </select>
+
+            {filtroTiempo === 'mes' && (
+              <select 
+                value={mesSeleccionado}
+                onChange={(e) => setMesSeleccionado(parseInt(e.target.value))}
+                className="px-2 py-1 border rounded"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((mes) => (
+                  <option key={mes} value={mes}>
+                    {new Date(0, mes - 1).toLocaleString('default', { month: 'long' })}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {filtroTiempo === 'año' && (
+              <select 
+                value={añoSeleccionado}
+                onChange={(e) => setAñoSeleccionado(parseInt(e.target.value))}
+                className="px-2 py-1 border rounded"
+              >
+                {añosDisponibles.map((año) => (
+                  <option key={año} value={año}>
+                    {año}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
       </header>
 

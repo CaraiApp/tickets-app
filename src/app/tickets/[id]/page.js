@@ -39,16 +39,34 @@ export default function DetalleTicket() {
     }
   };
 
-  const eliminarTicket = async () => {
+  const eliminarTicket = async (ticketId) => {
     try {
-      const { error } = await supabase.from("tickets").delete().eq("id", id);
+      const { error } = await supabase
+        .from('tickets')
+        .delete()
+        .eq('id', ticketId);
+  
       if (error) throw error;
-
-      alert("Ticket eliminado correctamente");
-      router.push(`/empleados/${ticket.empleado_id}`);
+  
+      // Eliminar también los items asociados al ticket
+      const { error: itemsError } = await supabase
+        .from('items_ticket')
+        .delete()
+        .eq('ticket_id', ticketId);
+  
+      if (itemsError) throw itemsError;
+  
+      // Actualizar estado local de tickets
+      setTickets(tickets.filter(ticket => ticket.id !== ticketId));
+      
+      alert('Ticket eliminado correctamente');
     } catch (error) {
-      console.error("Error al eliminar el ticket:", error);
-      alert("Error al eliminar el ticket");
+      // Método de registro seguro
+      if (typeof window !== 'undefined' && window.console && window.console.log) {
+        window.console.log('Error al eliminar el ticket:', error);
+      }
+      
+      alert('Error al eliminar el ticket');
     }
   };
 

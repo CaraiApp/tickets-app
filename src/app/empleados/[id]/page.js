@@ -16,7 +16,7 @@ export default function PerfilEmpleado() {
   const [expandedTickets, setExpandedTickets] = useState([]);
   const [menuAccionesAbierto, setMenuAccionesAbierto] = useState(false);
   const [estadisticasMensualesAbiertas, setEstadisticasMensualesAbiertas] = useState(false);
-
+  const [productosMasConsumidosAbierto, setProductosMasConsumidosAbierto] = useState(false);
   useEffect(() => {
     async function fetchEmpleadoData() {
       try {
@@ -180,17 +180,45 @@ export default function PerfilEmpleado() {
 
   const eliminarTicket = async (ticketId) => {
     try {
-      const { error } = await supabase
+      // Eliminar los items asociados al ticket primero
+      const { error: itemsError } = await supabase
+        .from('items_ticket')
+        .delete()
+        .eq('ticket_id', ticketId);
+  
+      if (itemsError) throw itemsError;
+  
+      // Luego eliminar el ticket
+      const { error: ticketError } = await supabase
         .from('tickets')
         .delete()
         .eq('id', ticketId);
-
-      if (error) throw error;
-
+  
+      if (ticketError) throw ticketError;
+  
+      // Actualizar el estado local de tickets
       setTickets(tickets.filter(ticket => ticket.id !== ticketId));
+      
+      // Actualizar las estadísticas
+      if (estadisticas) {
+        const nuevoTotalTickets = estadisticas.numeroTickets - 1;
+        const nuevoTotalGastado = parseFloat(estadisticas.totalGastado.replace('€', '')) - 
+          parseFloat(tickets.find(t => t.id === ticketId).total);
+  
+        setEstadisticas({
+          ...estadisticas,
+          numeroTickets: nuevoTotalTickets,
+          totalGastado: nuevoTotalGastado.toFixed(2) + '€'
+        });
+      }
+  
       alert('Ticket eliminado correctamente');
     } catch (error) {
-      console.error('Error al eliminar el ticket:', error);
+      // Método de registro seguro
+      if (typeof window !== 'undefined' && window.console && window.console.log) {
+        window.console.log('Error al eliminar el ticket:', error);
+      }
+      
       alert('Error al eliminar el ticket');
     }
   };
@@ -318,6 +346,50 @@ export default function PerfilEmpleado() {
     </div>
   </div>
 </div>
+{/* Productos Más Consumidos */}
+{estadisticas && estadisticas.productosMasConsumidos.length > 0 && (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+    <button
+      onClick={() => setProductosMasConsumidosAbierto(!productosMasConsumidosAbierto)}
+      className="w-full bg-gray-100 dark:bg-gray-700 px-4 py-3 text-left flex justify-between items-center"
+    >
+      <h3 className="text-lg font-semibold">Productos Más Consumidos</h3>
+      <svg 
+        className={`w-5 h-5 transition-transform ${productosMasConsumidosAbierto ? 'transform rotate-180' : ''}`} 
+        fill="none" 
+        viewBox="0 0 24 24" 
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+
+    {productosMasConsumidosAbierto && (
+      <div className="mt-4">
+        <ul className="space-y-2">
+          {estadisticas.productosMasConsumidos.slice(0, 5).map((producto, index) => (
+            <li 
+              key={index} 
+              className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-lg"
+            >
+              <div>
+                <p className="font-medium text-gray-800 dark:text-gray-200">
+                  {producto.nombre}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Cantidad: {producto.cantidad}
+                </p>
+              </div>
+              <span className="text-green-600 font-bold">
+                {producto.total}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </div>
+)}
 {/* Estadísticas Mensuales */}
 {estadisticas && estadisticas.estadisticasMensuales.length > 0 && (
   <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
@@ -385,12 +457,17 @@ export default function PerfilEmpleado() {
       <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-600">
         {ticket.items_ticket && ticket.items_ticket.length > 0 ? (
           <ul className="space-y-1">
-            {ticket.items_ticket.map((item, index) => (
-              <li key={index} className="flex justify-between">
-                <span>{item.descripcion}</span>
-                <span>{typeof item.precio === 'number' ? item.precio.toFixed(2) : parseFloat(item.precio).toFixed(2)}€</span>
-              </li>
-            ))}
+            {ticket.items_ticket && ticket.items_ticket.map((item, index) => (
+  <li key={index} className="flex justify-between text-sm">
+    <span>
+      {item.cantidad > 1 ? `${item.cantidad}x ` : ''}
+      {item.descripcion}
+    </span>
+    <span>
+      {typeof item.precio === 'number' ? item.precio.toFixed(2) : parseFloat(item.precio).toFixed(2)}€
+    </span>
+  </li>
+))}
           </ul>
         ) : (
           <p className="text-gray-500">No hay detalles disponibles para este ticket</p>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import supabase from "@/lib/supabase";
 
-// Componente principal con Suspense
+// Main component with Suspense
 export default function ScannerPage() {
   return (
     <Suspense fallback={
@@ -21,23 +21,33 @@ export default function ScannerPage() {
   );
 }
 
-// Componente Scanner que contiene toda la lógica
+// Scanner component with all logic
 function Scanner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const empleadoId = searchParams.get("empleadoId");
 
+  // State variables with JSDoc comments for type hinting
+  /** @type {Object} */
   const [empleado, setEmpleado] = useState(null);
+  
+  /** @type {string} */
   const [capturedImage, setCapturedImage] = useState(null);
+  
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  /** @type {Object} */
   const [results, setResults] = useState(null);
+  
   const [editandoResultados, setEditandoResultados] = useState(false);
+  
+  /** @type {Object} */
   const [resultadosEditados, setResultadosEditados] = useState(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Cargar datos del empleado desde Supabase
+  // Load employee data from Supabase
   useEffect(() => {
     if (empleadoId) {
       async function fetchEmpleadoData() {
@@ -58,12 +68,14 @@ function Scanner() {
     }
   }, [empleadoId]);
 
+  // Clean up camera on unmount
   useEffect(() => {
     return () => {
       stopCamera();
     };
   }, []);
 
+  // Update editable results when results change
   useEffect(() => {
     if (results) {
       setResultadosEditados({ ...results });
@@ -102,12 +114,14 @@ function Scanner() {
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(videoRef.current, 0, 0);
-
-    const imageData = canvas.toDataURL("image/jpeg");
-    setCapturedImage(imageData);
-    stopCamera();
-    processImage(imageData);
+    
+    if (ctx) {
+      ctx.drawImage(videoRef.current, 0, 0);
+      const imageData = canvas.toDataURL("image/jpeg");
+      setCapturedImage(imageData);
+      stopCamera();
+      processImage(imageData);
+    }
   };
 
   const processImage = async (imageData) => {
@@ -119,9 +133,9 @@ function Scanner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: imageData }),
       });
-
+  
       const data = await response.json();
-
+  
       if (data.error) {
         alert(`Error al procesar el ticket: ${data.error}`);
         setResults(null);
@@ -143,85 +157,52 @@ function Scanner() {
   };
 
   const guardarTicket = async () => {
-    // Validaciones más estrictas
-    if (!resultadosEditados?.fecha || !resultadosEditados?.total) {
-      alert('Faltan datos obligatorios del ticket');
-      return;
-    }
-  
-    if (!empleadoId) {
-      alert('Debe seleccionar un empleado');
-      return;
-    }
+    if (!resultadosEditados || !empleadoId) return;
   
     try {
-      // Parseo robusto de fecha
-      let fechaTicket;
-      try {
-        // Intentar parsear diferentes formatos
-        const parsedDate = new Date(resultadosEditados.fecha);
-        
-        // Verificar si la fecha es válida
-        if (isNaN(parsedDate.getTime())) {
-          // Si no es válida, usar fecha actual
-          fechaTicket = new Date().toISOString();
-        } else {
-          fechaTicket = parsedDate.toISOString();
-        }
-      } catch (dateError) {
-        console.error('Error al parsear fecha:', dateError);
-        fechaTicket = new Date().toISOString();
-      }
+      // Convertir la fecha a un timestamp
+      const fechaTimestamp = new Date(resultadosEditados.fecha);
   
-      // Insertar ticket
       const { data: ticketData, error: ticketError } = await supabase
         .from("tickets")
-        .insert({
-          empleado_id: parseInt(empleadoId),
-          fecha: fechaTicket,
-          total: parseFloat(resultadosEditados.total.replace("€", "").replace(',', '.')),
-          imagen_url: capturedImage || null,
-        })
+        .insert([
+          {
+            empleado_id: parseInt(empleadoId),
+            fecha: fechaTimestamp,
+            total: parseFloat(resultadosEditados.total.replace("€", "")),
+            imagen_url: capturedImage,
+          },
+        ])
         .select();
   
       if (ticketError) {
-        console.error('Error al insertar ticket:', ticketError);
+        console.log("Error en ticket:", ticketError);
         throw ticketError;
       }
   
       const ticketId = ticketData[0].id;
   
-      // Preparar items con validaciones
-      const itemsToInsert = resultadosEditados.items
-        .filter(item => item.name && item.price) // Solo items con nombre y precio
-        .map((item) => ({
-          ticket_id: ticketId,
-          descripcion: item.name,
-          precio: parseFloat(item.price.replace("€", "").replace(',', '.')),
-          cantidad: 1,
-        }));
+      const itemsToInsert = resultadosEditados.items.map((item) => ({
+        ticket_id: ticketId,
+        descripcion: item.name,
+        precio: parseFloat(item.price.replace("€", "")),
+        cantidad: item.quantity || 1,
+      }));
   
-      if (itemsToInsert.length === 0) {
-        alert('Debe tener al menos un artículo en el ticket');
-        return;
-      }
-  
-      // Insertar items
       const { error: itemsError } = await supabase
         .from("items_ticket")
         .insert(itemsToInsert);
   
       if (itemsError) {
-        console.error('Error al insertar items:', itemsError);
+        console.log("Error en items:", itemsError);
         throw itemsError;
       }
   
       alert("Ticket guardado correctamente");
       router.push(`/empleados/${empleadoId}`);
-  
     } catch (error) {
-      console.error("Error completo al guardar ticket:", error);
-      alert(`Error al guardar el ticket: ${error.message || 'Error desconocido'}`);
+      console.log("Error completo:", error);
+      alert(`Error al guardar el ticket: ${error.message}`);
     }
   };
 
@@ -274,123 +255,141 @@ function Scanner() {
           </div>
         )}
 
-{results && (
-  <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-    <div className="flex justify-between items-center mb-4">
-      <h2 className="text-lg font-bold">Resultados</h2>
-      <button 
-        onClick={() => setEditandoResultados(!editandoResultados)}
-        className="text-blue-500 hover:text-blue-700"
-      >
-        {editandoResultados ? 'Cancelar Edición' : 'Editar Resultados'}
-      </button>
-    </div>
-    
-    <div className="space-y-4">
-      <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
-        <div className="flex items-center">
-          <span className="font-semibold mr-2">Total:</span>
-          {editandoResultados ? (
-            <input
-              type="text"
-              value={resultadosEditados.total}
-              onChange={(e) => setResultadosEditados({...resultadosEditados, total: e.target.value})}
-              className="px-2 py-1 border rounded"
-            />
-          ) : (
-            <span>{results.total}</span>
-          )}
-        </div>
-      </div>
-      
-      <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
-        <div className="flex items-center">
-          <span className="font-semibold mr-2">Fecha:</span>
-          {editandoResultados ? (
-            <input
-              type="text"
-              value={resultadosEditados.fecha}
-              onChange={(e) => setResultadosEditados({...resultadosEditados, fecha: e.target.value})}
-              className="px-2 py-1 border rounded"
-            />
-          ) : (
-            <span>{results.fecha}</span>
-          )}
-        </div>
-      </div>
-      
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <span className="font-semibold">Artículos:</span>
-          {editandoResultados && (
-            <button 
-              onClick={() => {
-                setResultadosEditados({
-                  ...resultadosEditados,
-                  items: [...resultadosEditados.items, { name: '', price: '0.00€' }]
-                });
-              }}
-              className="text-green-500 hover:text-green-700 text-sm"
-            >
-              + Añadir Artículo
-            </button>
-          )}
-        </div>
-        
-        <ul className="mt-2 space-y-2">
-          {(editandoResultados ? resultadosEditados.items : results.items)?.map((item, index) => (
-            <li key={index} className="p-2 bg-gray-100 dark:bg-gray-700 rounded flex justify-between items-center">
-              {editandoResultados ? (
-                <>
-                  <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => {
-                      const updatedItems = [...resultadosEditados.items];
-                      updatedItems[index] = { ...item, name: e.target.value };
-                      setResultadosEditados({...resultadosEditados, items: updatedItems});
-                    }}
-                    className="px-2 py-1 border rounded w-1/2"
-                  />
-                  <div className="flex items-center">
+        {results && (
+          <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Resultados</h2>
+              <button 
+                onClick={() => setEditandoResultados(!editandoResultados)}
+                className="text-blue-500 hover:text-blue-700"
+              >
+                {editandoResultados ? 'Cancelar Edición' : 'Editar Resultados'}
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                <div className="flex items-center">
+                  <span className="font-semibold mr-2">Total:</span>
+                  {editandoResultados ? (
                     <input
                       type="text"
-                      value={item.price}
-                      onChange={(e) => {
-                        const updatedItems = [...resultadosEditados.items];
-                        updatedItems[index] = { ...item, price: e.target.value };
-                        setResultadosEditados({...resultadosEditados, items: updatedItems});
-                      }}
-                      className="px-2 py-1 border rounded w-24"
+                      value={resultadosEditados.total}
+                      onChange={(e) => setResultadosEditados({...resultadosEditados, total: e.target.value})}
+                      className="px-2 py-1 border rounded"
                     />
+                  ) : (
+                    <span>{results.total}</span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                <div className="flex items-center">
+                  <span className="font-semibold mr-2">Fecha:</span>
+                  {editandoResultados ? (
+                    <input
+                      type="text"
+                      value={resultadosEditados.fecha}
+                      onChange={(e) => setResultadosEditados({...resultadosEditados, fecha: e.target.value})}
+                      className="px-2 py-1 border rounded"
+                    />
+                  ) : (
+                    <span>{results.fecha}</span>
+                  )}
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold">Artículos:</span>
+                  {editandoResultados && (
                     <button 
                       onClick={() => {
-                        const updatedItems = [...resultadosEditados.items];
-                        updatedItems.splice(index, 1);
-                        setResultadosEditados({...resultadosEditados, items: updatedItems});
+                        setResultadosEditados({
+                          ...resultadosEditados,
+                          items: [...resultadosEditados.items, { name: '', price: '0.00€', quantity: 1 }]
+                        });
                       }}
-                      className="ml-2 text-red-500 hover:text-red-700"
+                      className="text-green-500 hover:text-green-700 text-sm"
                     >
-                      &times;
+                      + Añadir Artículo
                     </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <span>{item.name}</span>
-                  <span>{item.price}</span>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  </div>
-)}
-            <button onClick={guardarTicket} className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded w-full">
-              Guardar Ticket
-            </button>
+                  )}
+                </div>
+                
+                <ul className="mt-2 space-y-2">
+                  {(editandoResultados ? resultadosEditados.items : results.items)?.map((item, index) => (
+                    <li key={index} className="p-2 bg-gray-100 dark:bg-gray-700 rounded flex justify-between items-center">
+                      {editandoResultados ? (
+                        <div className="flex items-center w-full">
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity || 1}
+                            onChange={(e) => {
+                              const updatedItems = [...resultadosEditados.items];
+                              updatedItems[index] = { 
+                                ...item, 
+                                quantity: parseInt(e.target.value) || 1 
+                              };
+                              setResultadosEditados({...resultadosEditados, items: updatedItems});
+                            }}
+                            className="px-2 py-1 border rounded w-16 mr-2"
+                          />
+                          <input
+                            type="text"
+                            value={item.name}
+                            onChange={(e) => {
+                              const updatedItems = [...resultadosEditados.items];
+                              updatedItems[index] = { ...item, name: e.target.value };
+                              setResultadosEditados({...resultadosEditados, items: updatedItems});
+                            }}
+                            className="px-2 py-1 border rounded flex-1 mr-2"
+                          />
+                          <input
+                            type="text"
+                            value={item.price}
+                            onChange={(e) => {
+                              const updatedItems = [...resultadosEditados.items];
+                              updatedItems[index] = { ...item, price: e.target.value };
+                              setResultadosEditados({...resultadosEditados, items: updatedItems});
+                            }}
+                            className="px-2 py-1 border rounded w-24"
+                          />
+                          <button 
+                            onClick={() => {
+                              const updatedItems = [...resultadosEditados.items];
+                              updatedItems.splice(index, 1);
+                              setResultadosEditados({...resultadosEditados, items: updatedItems});
+                            }}
+                            className="ml-2 text-red-500 hover:text-red-700"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between w-full">
+                          <span>{item.quantity > 1 ? `${item.quantity}x ` : ''}{item.name}</span>
+                          <span>{item.price}</span>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                
+                {results && (
+                  <button 
+                    onClick={guardarTicket} 
+                    className="mt-4 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded w-full"
+                  >
+                    Guardar Ticket
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
