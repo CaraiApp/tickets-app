@@ -167,18 +167,18 @@ function Scanner() {
   
     try {
       const fechaTimestamp = new Date(resultadosEditados.fecha);
-  
-      const { data: ticketData, error: ticketError } = await supabase
-        .from("tickets")
-        .insert([
-          {
-            empleado_id: parseInt(empleadoId),
-            fecha: fechaTimestamp,
-            total: parseFloat(resultadosEditados.total.replace("€", "")),
-            imagen_url: capturedImage,
-          },
-        ])
-        .select();
+
+const { data: ticketData, error: ticketError } = await supabase
+  .from("tickets")
+  .insert([
+    {
+      empleado_id: parseInt(empleadoId),
+      fecha: fechaTimestamp.toISOString(),
+      total: parseFloat(resultadosEditados.total.replace("€", "")),
+      imagen_url: capturedImage,
+    },
+  ])
+  .select();
   
       if (ticketError) throw ticketError;
   
