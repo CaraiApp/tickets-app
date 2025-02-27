@@ -80,10 +80,40 @@ function Scanner() {
     };
   }, []);
 
-  // Update editable results when results change
   useEffect(() => {
     if (results) {
-      setResultadosEditados({ ...results });
+      try {
+        // La fecha ya debería venir en formato YYYY-MM-DD desde la API
+        // Pero añadimos una capa adicional de seguridad
+        
+        let inputDate = results.fecha;
+        
+        // Verificar si la fecha tiene el formato correcto (YYYY-MM-DD)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(inputDate)) {
+          // Si no tiene el formato correcto, intentar convertirla
+          const dateObj = new Date(inputDate);
+          if (!isNaN(dateObj.getTime())) {
+            inputDate = dateObj.toISOString().split('T')[0];
+          } else {
+            // Si no se puede convertir, usar la fecha actual
+            const today = new Date();
+            inputDate = today.toISOString().split('T')[0];
+          }
+        }
+        
+        setResultadosEditados({ 
+          ...results, 
+          fecha: inputDate
+        });
+      } catch (error) {
+        console.error("Error al procesar la fecha:", error);
+        // Usar la fecha actual como fallback en caso de error
+        const today = new Date();
+        setResultadosEditados({ 
+          ...results, 
+          fecha: today.toISOString().split('T')[0]
+        });
+      }
     }
   }, [results]);
 
@@ -179,23 +209,36 @@ function Scanner() {
   };
 
   const guardarTicket = async () => {
-    if (!resultadosEditados || !empleadoId) return;
+    if (!resultadosEditados || !empleadoId || !resultadosEditados.fecha) return;
   
     try {
-      const fechaTimestamp = new Date(resultadosEditados.fecha);
-
-const { data: ticketData, error: ticketError } = await supabase
-  .from("tickets")
-  .insert([
-    {
-      empleado_id: parseInt(empleadoId),
-      fecha: fechaTimestamp.toISOString(),
-      total: parseFloat(resultadosEditados.total.replace("€", "")),
-      imagen_url: capturedImage,
-    },
-  ])
-  .select();
-  
+      // Crear un objeto Date válido
+      let fechaTimestamp;
+      try {
+        fechaTimestamp = new Date(resultadosEditados.fecha);
+        
+        // Verificar si la fecha es válida
+        if (isNaN(fechaTimestamp.getTime())) {
+          // Si no es válida, usar la fecha actual
+          fechaTimestamp = new Date();
+        }
+      } catch (error) {
+        console.error("Error al procesar la fecha:", error);
+        fechaTimestamp = new Date();
+      }
+      
+      const { data: ticketData, error: ticketError } = await supabase
+        .from("tickets")
+        .insert([
+          {
+            empleado_id: parseInt(empleadoId),
+            fecha: fechaTimestamp,
+            total: parseFloat(resultadosEditados.total.replace("€", "")),
+            imagen_url: capturedImage,
+          },
+        ])
+        .select();
+      
       if (ticketError) throw ticketError;
   
       const ticketId = ticketData[0].id;
@@ -244,14 +287,14 @@ const { data: ticketData, error: ticketError } = await supabase
           {!capturedImage ? (
             <>
               <div className="flex-grow bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden mb-4">
-    <video 
-    ref={videoRef} 
-    autoPlay 
-    playsInline 
-    className="w-full h-full object-cover"
-    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-  />
-</div>
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  className="w-full h-full object-cover"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
               <button 
                 onClick={captureImage} 
                 className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-lg text-lg font-bold"
@@ -329,13 +372,13 @@ const { data: ticketData, error: ticketError } = await supabase
                   <span className="font-semibold mr-2">Fecha:</span>
                   {editandoResultados ? (
                     <input
-                      type="text"
+                      type="date"
                       value={resultadosEditados.fecha}
                       onChange={(e) => setResultadosEditados({...resultadosEditados, fecha: e.target.value})}
                       className="px-2 py-1 border rounded"
                     />
                   ) : (
-                    <span>{results.fecha}</span>
+                    <span>{new Date(results.fecha).toLocaleDateString()}</span>
                   )}
                 </div>
               </div>
@@ -404,59 +447,57 @@ const { data: ticketData, error: ticketError } = await supabase
                               setResultadosEditados({...resultadosEditados, items: updatedItems});
                             }}
                             className="ml-2 text-red-500 hover:text-red-700"
-                          >
-                            &times;
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-between w-full">
-                          <span>{item.quantity > 1 ? `${item.quantity}x ` : ''}{item.name}</span>
-                          <span>{item.price}</span>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                
-                {results && (
-                  <button 
-                    onClick={guardarTicket} 
-                    className="mt-4bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded w-full"
-                  >
-                    Guardar Ticket
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Modal de éxito */}
-      {mostrarModalExito && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
-            <svg 
-              className="mx-auto mb-4 w-16 h-16 text-green-500" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24" 
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M5 13l4 4L19 7" 
-              />
-            </svg>
-            <h2 className="text-2xl font-bold mb-4">Ticket Guardado</h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              El ticket se ha guardado correctamente
-            </p>
+>
+×
+</button>
+</div>
+) : (
+<div className="flex justify-between w-full">
+<span>{item.quantity > 1 ? `${item.quantity}x ` : ''}{item.name}</span><span>{item.price}</span>
+</div>
+)}
+</li>
+))}
+</ul>
+{results && (
+              <button 
+                onClick={guardarTicket} 
+                className="mt-4 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded w-full"
+              >
+                Guardar Ticket
+              </button>
+            )}
           </div>
         </div>
-      )}
+      </div>
+    )}
+  </main>
+
+  {/* Modal de éxito */}
+  {mostrarModalExito && (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+        <svg 
+          className="mx-auto mb-4 w-16 h-16 text-green-500" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24" 
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            strokeWidth={2} 
+            d="M5 13l4 4L19 7" 
+          />
+        </svg>
+        <h2 className="text-2xl font-bold mb-4">Ticket Guardado</h2>
+        <p className="text-gray-600 dark:text-gray-300 mb-4">
+          El ticket se ha guardado correctamente
+        </p>
+      </div>
     </div>
-  );
+  )}
+</div>
+);
 }
