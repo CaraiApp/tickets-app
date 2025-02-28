@@ -37,16 +37,21 @@ function PricingContent() {
 
   const handleSubscription = async (priceId, planName) => {
     setLoading(true);
+    setMessage(''); // Limpiar mensajes anteriores
     
     try {
-      // Si es el plan gratuito, simplemente actualizar la BD
+      // Verificar primero la sesión de manera más robusta
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Si no hay sesión, guardar plan y redirigir
+        localStorage.setItem('selectedPlanId', priceId);
+        router.push('/register');
+        return;
+      }
+  
+      // Si es plan gratuito
       if (!priceId) {
-        if (!session) {
-          router.push('/register');
-          return;
-        }
-        
-        // Actualizar el plan de la organización
         const { data: userData } = await supabase
           .from('user_profiles')
           .select('organization_id')
@@ -64,15 +69,7 @@ function PricingContent() {
         return;
       }
       
-      // Para planes pagados, crear checkout de Stripe
-      if (!session) {
-        // Guardar plan seleccionado y redirigir a registro
-        localStorage.setItem('selectedPlanId', priceId);
-        router.push('/register');
-        return;
-      }
-      
-      // Crear sesión de checkout
+      // Para planes de pago
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -81,18 +78,22 @@ function PricingContent() {
         body: JSON.stringify({
           priceId,
           planName,
+          userId: session.user.id // Pasar ID de usuario para mayor seguridad
         }),
       });
       
+      if (!response.ok) {
+        throw new Error('No se pudo crear la sesión de pago');
+      }
+      
       const { sessionId } = await response.json();
       
-      // Redirigir a Stripe Checkout
       const stripe = await getStripe();
       await stripe.redirectToCheckout({ sessionId });
       
     } catch (error) {
       console.error('Error al procesar la suscripción:', error);
-      setMessage('Ocurrió un error al procesar la suscripción. Por favor, intenta de nuevo.');
+      setMessage(error.message || 'Ocurrió un error al procesar la suscripción. Por favor, intenta de nuevo.');
     } finally {
       setLoading(false);
     }
