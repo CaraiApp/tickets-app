@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LoginForm from '@/components/auth/LoginForm';
 
-export default function LoginPage() {
+// Componente contenedor para useSearchParams
+function LoginContent() {
   const router = useRouter();
   
   useEffect(() => {
@@ -26,7 +27,7 @@ export default function LoginPage() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link href="/">
           <h2 className="text-center text-3xl font-extrabold text-gray-900">
-            Ticket SaaS
+            Ticket Lucrapp
           </h2>
         </Link>
         <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
@@ -44,5 +45,13 @@ export default function LoginPage() {
         <LoginForm />
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

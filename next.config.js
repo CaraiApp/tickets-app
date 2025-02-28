@@ -37,10 +37,10 @@ const nextConfig = {
             directives: {
               defaultSrc: ["'self'"],
               styleSrc: ["'self'", "'unsafe-inline'"],
-              scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
+              scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'", "js.stripe.com"],
               imgSrc: ["'self'", 'data:', 'https://your-supabase-storage-domain.com', 'blob:'],
-              connectSrc: ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co'],
-              frameSrc: ["'self'"],
+              connectSrc: ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co', 'https://*.stripe.com'],
+              frameSrc: ["'self'", 'https://*.stripe.com'],
               fontSrc: ["'self'", 'data:'],
               mediaSrc: ["'self'"],
               objectSrc: ["'none'"],
