@@ -39,9 +39,13 @@ function PricingContent() {
     setLoading(true);
     setMessage('');
     
-    console.log('🚀 Iniciando suscripción');
-    console.log('- Price ID:', priceId);
-    console.log('- Plan Name:', planName);
+    console.log('🚀 Iniciando suscripción en PRODUCCIÓN');
+    console.log('Información actual:', {
+      priceId, 
+      planName,
+      baseUrl: window.location.origin,
+      hostname: window.location.hostname
+    });
   
     try {
       const response = await fetch('/api/create-checkout-session', {
@@ -49,13 +53,14 @@ function PricingContent() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          priceId,
-          planName,
-        }),
+        body: JSON.stringify({ priceId, planName }),
       });
   
-      console.log('📡 Respuesta del servidor:', response);
+      console.log('📡 Respuesta del servidor:', {
+        status: response.status,
+        ok: response.ok
+      });
+  
       const responseData = await response.json();
       console.log('📊 Datos de respuesta:', responseData);
   
@@ -65,9 +70,8 @@ function PricingContent() {
         return;
       }
   
-      const { sessionId, checkoutUrl } = responseData;
+      const { sessionId } = responseData;
       console.log('🔑 Session ID:', sessionId);
-      console.log('🌐 Checkout URL:', checkoutUrl);
       
       const stripe = await getStripe();
       await stripe.redirectToCheckout({ sessionId });
@@ -142,7 +146,7 @@ function PricingContent() {
             <div className="mt-4 mb-8">
               <span className="text-4xl font-bold">€{plan.price}</span>
               <span className="text-gray-500">
-                {plan.billingPeriod ? `/${plan.billingPeriod}` : '/año'}
+                {plan.billingPeriod ? `/${plan.billingPeriod}` : '/mes'}
               </span>
             </div>
             

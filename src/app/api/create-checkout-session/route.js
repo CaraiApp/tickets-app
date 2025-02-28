@@ -4,9 +4,15 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
 export async function POST(request) {
-  // Registro de inicio de la solicitud
-  console.log('🔍 Inicio de solicitud de sesión de checkout');
-  
+  // Registro detallado de contexto de ejecución
+  console.log('🌍 Contexto de ejecución:', {
+    ambiente: process.env.NODE_ENV,
+    baseUrl: process.env.NEXT_PUBLIC_BASE_URL,
+    stripePublicKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ? 
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.substring(0, 10) + '...' : 
+      'NO CONFIGURADA'
+  });
+
   try {
     // Parsear el cuerpo de la solicitud con manejo de errores
     let requestBody;
@@ -99,7 +105,7 @@ export async function POST(request) {
         { 
           error: 'ID de Precio inválido', 
           details: priceError.message,
-          fullError: priceError
+          fullError: priceError.toString()
         },
         { status: 400 }
       );
@@ -121,24 +127,40 @@ export async function POST(request) {
         metadata: {
           organizationId: userData.organization_id,
           planName: planName,
-          userId: session.user.id
+          userId: session.user.id,
+          creationDomain: process.env.NEXT_PUBLIC_BASE_URL
         },
         success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?success=true`,
         cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?canceled=true`,
         billing_address_collection: 'auto',
         customer_email: session.user.email,
+        
+        // Añadir configuraciones adicionales de seguridad
+        consent_collection: {
+          terms_of_service: 'required',
+        },
       });
 
       console.log('✅ Sesión de checkout creada:');
       console.log('- Session ID:', checkoutSession.id);
       console.log('- Checkout URL:', checkoutSession.url);
+      console.log('- Success URL:', checkoutSession.success_url);
+      console.log('- Cancel URL:', checkoutSession.cancel_url);
     } catch (checkoutError) {
-      console.error('❌ Error al crear sesión de checkout:', checkoutError);
+      console.error('❌ Error detallado al crear sesión:', {
+        message: checkoutError.message,
+        type: checkoutError.type,
+        code: checkoutError.code,
+        param: checkoutError.param,
+        raw: checkoutError.toString()
+      });
+
       return NextResponse.json(
         { 
           error: 'No se pudo crear la sesión de pago', 
           details: checkoutError.message,
-          fullError: checkoutError
+          type: checkoutError.type,
+          code: checkoutError.code
         },
         { status: 500 }
       );
@@ -151,13 +173,16 @@ export async function POST(request) {
 
   } catch (error) {
     // Captura de errores general
-    console.error('🔥 Error crítico:', error);
+    console.error('🔥 Error crítico final:', {
+      message: error.message,
+      name: error.name,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
     
     return NextResponse.json(
       { 
         error: 'Error inesperado al procesar la suscripción',
         details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
       { status: 500 }
     );
