@@ -134,11 +134,7 @@ export async function POST(request) {
         cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?canceled=true`,
         billing_address_collection: 'auto',
         customer_email: session.user.email,
-        
-        // Añadir configuraciones adicionales de seguridad
-        consent_collection: {
-          terms_of_service: 'required',
-        },
+      
       });
 
       console.log('✅ Sesión de checkout creada:');
