@@ -40,36 +40,6 @@ function PricingContent() {
     setMessage(''); // Limpiar mensajes anteriores
     
     try {
-      // Verificar primero la sesión de manera más robusta
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        // Si no hay sesión, guardar plan y redirigir
-        localStorage.setItem('selectedPlanId', priceId);
-        router.push('/register');
-        return;
-      }
-  
-      // Si es plan gratuito
-      if (!priceId) {
-        const { data: userData } = await supabase
-          .from('user_profiles')
-          .select('organization_id')
-          .eq('id', session.user.id)
-          .single();
-          
-        if (userData?.organization_id) {
-          await supabase
-            .from('organizations')
-            .update({ subscription_plan: 'free' })
-            .eq('id', userData.organization_id);
-        }
-        
-        router.push('/dashboard');
-        return;
-      }
-      
-      // Para planes de pago
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -78,22 +48,27 @@ function PricingContent() {
         body: JSON.stringify({
           priceId,
           planName,
-          userId: session.user.id // Pasar ID de usuario para mayor seguridad
         }),
       });
-      
+  
+      // Manejo más detallado de la respuesta
+      const responseData = await response.json();
+  
       if (!response.ok) {
-        throw new Error('No se pudo crear la sesión de pago');
+        // Mostrar mensaje de error específico
+        setMessage(responseData.error || 'Ocurrió un error al procesar la suscripción');
+        console.error('Error details:', responseData);
+        return;
       }
-      
-      const { sessionId } = await response.json();
+  
+      const { sessionId } = responseData;
       
       const stripe = await getStripe();
       await stripe.redirectToCheckout({ sessionId });
       
     } catch (error) {
       console.error('Error al procesar la suscripción:', error);
-      setMessage(error.message || 'Ocurrió un error al procesar la suscripción. Por favor, intenta de nuevo.');
+      setMessage('Ocurrió un error al procesar la suscripción. Por favor, intenta de nuevo.');
     } finally {
       setLoading(false);
     }

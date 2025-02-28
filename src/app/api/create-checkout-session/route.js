@@ -5,79 +5,74 @@ import { cookies } from 'next/headers';
 
 export async function POST(request) {
   try {
-    const { priceId, planName, userId } = await request.json();
+    const { priceId, planName } = await request.json();
     
-    // Validar entradas
-    if (!priceId || !planName) {
+    // Log adicional para depuración
+    console.log('Received priceId:', priceId);
+    console.log('Received planName:', planName);
+    
+    // Validación de entradas
+    if (!priceId) {
       return NextResponse.json(
-        { error: 'Información de plan incompleta' },
+        { error: 'Price ID es requerido' },
         { status: 400 }
       );
     }
-    
-    // Obtener usuario actual
+
     const supabase = createRouteHandlerClient({ cookies });
     const { data: { session } } = await supabase.auth.getSession();
     
-    if (!session || (userId && session.user.id !== userId)) {
+    if (!session) {
       return NextResponse.json(
         { error: 'No autorizado' },
         { status: 401 }
       );
     }
-    
-    // Obtener datos del usuario y su organización
-    const { data: userData, error: userError } = await supabase
-      .from('user_profiles')
-      .select('*, organizations(*)')
-      .eq('id', session.user.id)
-      .single();
-    
-    if (userError || !userData || !userData.organizations) {
-      console.error('Error obteniendo perfil de usuario:', userError);
+
+    // Verificación adicional de precio en Stripe
+    try {
+      const price = await stripeServer.prices.retrieve(priceId);
+      console.log('Precio verificado:', price);
+    } catch (priceError) {
+      console.error('Error verificando precio:', priceError);
       return NextResponse.json(
-        { error: 'Perfil de usuario o organización no encontrados' },
-        { status: 404 }
+        { error: 'Precio inválido', details: priceError.message },
+        { status: 400 }
       );
     }
+
+    // Resto de tu código de creación de sesión...
+    const checkoutSession = await stripeServer.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?canceled=true`,
+      // Añade más configuraciones si es necesario
+    });
+
+    return NextResponse.json({ sessionId: checkoutSession.id });
+
+  } catch (error) {
+    // Log detallado del error
+    console.error('Error completo:', error);
     
-    const organizationId = userData.organization_id;
-    const organization = userData.organizations;
-    
-    // Verificar si ya existe un cliente de Stripe
-    let customerId = organization.stripe_customer_id;
-    
-    if (!customerId) {
-      try {
-        // Crear cliente en Stripe
-        const customer = await stripeServer.customers.create({
-          email: session.user.email,
-          name: organization.name,
-          metadata: {
-            organizationId,
-          },
-        });
-        
-        customerId = customer.id;
-        
-        // Guardar ID de cliente en la base de datos
-        const { error: updateError } = await supabase
-          .from('organizations')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', organizationId);
-        
-        if (updateError) {
-          console.error('Error actualizando ID de cliente de Stripe:', updateError);
-          // No es un error crítico, continuamos
-        }
-      } catch (customerError) {
-        console.error('Error creando cliente de Stripe:', customerError);
-        return NextResponse.json(
-          { error: 'No se pudo crear el cliente de Stripe' },
-          { status: 500 }
-        );
-      }
-    }
+    return NextResponse.json(
+      { 
+        error: 'No se pudo crear la sesión de pago',
+        details: error.message,
+        // Opcional: incluir más detalles del error para depuración
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
+      { status: 500 }
+    );
+  }
+}
     
     // Crear sesión de checkout
     try {
