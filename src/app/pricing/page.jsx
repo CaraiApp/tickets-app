@@ -140,8 +140,10 @@ function PricingContent() {
             <h2 className="text-2xl font-bold mt-4">{plan.name}</h2>
             
             <div className="mt-4 mb-8">
-              <span className="text-4xl font-bold">${plan.price}</span>
-              <span className="text-gray-500">/mes</span>
+              <span className="text-4xl font-bold">€{plan.price}</span>
+              <span className="text-gray-500">
+                {plan.billingPeriod ? `/${plan.billingPeriod}` : '/año'}
+              </span>
             </div>
             
             <ul className="space-y-3 mb-8">
@@ -180,9 +182,9 @@ function PricingContent() {
         ))}
       </div>
     </div>
-    
   );
 }
+
 // Añade este bloque al final del archivo, fuera de cualquier otro componente
 export default function PricingPage() {
   return (

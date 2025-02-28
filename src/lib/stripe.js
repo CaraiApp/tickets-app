@@ -25,7 +25,7 @@ export const pricingPlans = [
   {
     name: 'Free',
     price: '0',
-    priceId: null, // No necesitamos ID para el plan gratuito
+    priceId: null,
     features: [
       'Hasta 3 usuarios',
       '100 tickets mensuales',
@@ -33,11 +33,12 @@ export const pricingPlans = [
     ],
     buttonText: 'Empezar gratis',
     popular: false,
+    billingPeriod: 'mes'
   },
   {
     name: 'Pro',
-    price: '29',
-    priceId: 'price_1QxQnIAMTKzwB6wRzsjxdwoG', // Reemplaza con tu ID real
+    price: '29', // Precio mensual
+    priceId: 'price_1QxQnIAMTKzwB6wRzsjxdwoG', // ID de precio mensual de Stripe
     features: [
       'Hasta 20 usuarios',
       'Tickets ilimitados',
@@ -46,11 +47,12 @@ export const pricingPlans = [
     ],
     buttonText: 'Suscribirse al plan Pro',
     popular: true,
+    billingPeriod: 'mes'
   },
   {
     name: 'Enterprise',
-    price: '149',
-    priceId: 'price_1QxQolAMTKzwB6wRmQ1zf8ON', // Reemplaza con tu ID real
+    price: '149', // Precio anual (149 * 12)
+    priceId: 'price_1QxQolAMTKzwB6wRmQ1zf8ON', // ID de precio anual de Stripe
     features: [
       'Usuarios ilimitados',
       'Tickets ilimitados',
@@ -59,6 +61,7 @@ export const pricingPlans = [
     ],
     buttonText: 'Suscribirse al plan Enterprise',
     popular: false,
+    billingPeriod: 'año'
   },
 ];
 
