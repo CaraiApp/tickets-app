@@ -102,7 +102,7 @@ export default function PricingPage() {
       {/* Navbar básico */}
       <nav className="flex justify-between items-center mb-12">
         <Link href="/" className="text-2xl font-bold text-blue-600">
-          Ticket SaaS
+          Ticket Lucrapp
         </Link>
         
         <div>

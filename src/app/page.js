@@ -8,7 +8,7 @@ export default function LandingPage() {
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-blue-600">Ticket SaaS</h1>
+            <h1 className="text-2xl font-bold text-blue-600">Ticket Lucrapp</h1>
           </div>
           
           <nav>
@@ -140,7 +140,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-xl font-bold mb-4">Ticket SaaS</h3>
+              <h3 className="text-xl font-bold mb-4">Ticket Lucrapp</h3>
               <p className="text-gray-400">
                 Sistema de gestión de tickets diseñado para empresas de todos los tamaños.
               </p>
@@ -201,7 +201,7 @@ export default function LandingPage() {
           </div>
           
           <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; {new Date().getFullYear()} Ticket SaaS. Todos los derechos reservados.</p>
+            <p>&copy; {new Date().getFullYear()} Ticket Lucrapp. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>

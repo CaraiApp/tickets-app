@@ -37,7 +37,7 @@ export const pricingPlans = [
   {
     name: 'Pro',
     price: '29',
-    priceId: 'price_YOUR_PRICE_ID_HERE', // Reemplaza con tu ID real
+    priceId: 'prod_Rr95SShT1eDMMj', // Reemplaza con tu ID real
     features: [
       'Hasta 20 usuarios',
       'Tickets ilimitados',
@@ -49,13 +49,12 @@ export const pricingPlans = [
   },
   {
     name: 'Enterprise',
-    price: '99',
-    priceId: 'price_YOUR_ENTERPRISE_PRICE_ID_HERE', // Reemplaza con tu ID real
+    price: '149',
+    priceId: 'prod_Rr96sFD4tVkmut', // Reemplaza con tu ID real
     features: [
       'Usuarios ilimitados',
       'Tickets ilimitados',
       'Informes avanzados',
-      'API personalizada',
       'Soporte 24/7',
     ],
     buttonText: 'Suscribirse al plan Enterprise',
