@@ -37,17 +37,17 @@ function PricingContent() {
 
   const handleSubscription = async (priceId, planName) => {
     setLoading(true);
-    setMessage('');
+    setMessage(''); // Limpiar mensaje anterior
     
-    console.log('🚀 Iniciando suscripción en PRODUCCIÓN');
-    console.log('Información actual:', {
-      priceId, 
-      planName,
-      baseUrl: window.location.origin,
-      hostname: window.location.hostname
-    });
-  
     try {
+      console.log('🚀 Iniciando suscripción');
+      console.log('Información de la solicitud:', {
+        priceId, 
+        planName,
+        baseUrl: window.location.origin,
+        fullUrl: window.location.href
+      });
+  
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -56,29 +56,34 @@ function PricingContent() {
         body: JSON.stringify({ priceId, planName }),
       });
   
-      console.log('📡 Respuesta del servidor:', {
+      console.log('Respuesta del servidor:', {
         status: response.status,
         ok: response.ok
       });
   
       const responseData = await response.json();
-      console.log('📊 Datos de respuesta:', responseData);
+      console.log('Datos de respuesta:', responseData);
   
       if (!response.ok) {
-        console.error('❌ Error en la respuesta:', responseData);
-        setMessage(responseData.error || 'Error al procesar');
+        // Mostrar detalles específicos del error
+        const errorMessage = responseData.details || 
+          responseData.error || 
+          'Error desconocido al procesar la suscripción';
+        
+        console.error('Error detallado:', errorMessage);
+        setMessage(errorMessage);
         return;
       }
   
       const { sessionId } = responseData;
-      console.log('🔑 Session ID:', sessionId);
+      console.log('Session ID:', sessionId);
       
       const stripe = await getStripe();
       await stripe.redirectToCheckout({ sessionId });
       
     } catch (error) {
-      console.error('🔥 Error completo:', error);
-      setMessage('Error al procesar la suscripción');
+      console.error('Error completo:', error);
+      setMessage(error.message || 'Error al procesar la suscripción');
     } finally {
       setLoading(false);
     }
