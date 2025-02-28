@@ -37,8 +37,12 @@ function PricingContent() {
 
   const handleSubscription = async (priceId, planName) => {
     setLoading(true);
-    setMessage(''); // Limpiar mensajes anteriores
+    setMessage('');
     
+    console.log('🚀 Iniciando suscripción');
+    console.log('- Price ID:', priceId);
+    console.log('- Plan Name:', planName);
+  
     try {
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
@@ -51,24 +55,26 @@ function PricingContent() {
         }),
       });
   
-      // Manejo más detallado de la respuesta
+      console.log('📡 Respuesta del servidor:', response);
       const responseData = await response.json();
+      console.log('📊 Datos de respuesta:', responseData);
   
       if (!response.ok) {
-        // Mostrar mensaje de error específico
-        setMessage(responseData.error || 'Ocurrió un error al procesar la suscripción');
-        console.error('Error details:', responseData);
+        console.error('❌ Error en la respuesta:', responseData);
+        setMessage(responseData.error || 'Error al procesar');
         return;
       }
   
-      const { sessionId } = responseData;
+      const { sessionId, checkoutUrl } = responseData;
+      console.log('🔑 Session ID:', sessionId);
+      console.log('🌐 Checkout URL:', checkoutUrl);
       
       const stripe = await getStripe();
       await stripe.redirectToCheckout({ sessionId });
       
     } catch (error) {
-      console.error('Error al procesar la suscripción:', error);
-      setMessage('Ocurrió un error al procesar la suscripción. Por favor, intenta de nuevo.');
+      console.error('🔥 Error completo:', error);
+      setMessage('Error al procesar la suscripción');
     } finally {
       setLoading(false);
     }
