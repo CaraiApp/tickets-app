@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { stripeServer } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 
-// Inicializar Supabase (usando admin key para evitar limitaciones de RLS)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export async function POST(request) {
+  console.log('🌟 Webhook de Stripe recibido');
+
   const payload = await request.text();
   const signature = request.headers.get('stripe-signature');
   
@@ -21,24 +22,40 @@ export async function POST(request) {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (error) {
-    console.error(`Webhook Error: ${error.message}`);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error('🚨 Error de validación de webhook:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    
+    return NextResponse.json(
+      { 
+        error: 'Invalid webhook signature', 
+        details: error.message 
+      }, 
+      { status: 400 }
+    );
   }
-  
-  // Manejar eventos específicos
+
+  console.log(`🔔 Tipo de evento recibido: ${event.type}`);
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
+        console.log('✅ Checkout completado:', session);
         
-        // Extraer datos de metadata
-        const { organizationId, planName } = session.metadata;
+        const { organizationId, planName } = session.metadata || {};
         
-        // Actualizar la organización con el ID de suscripción
+        if (!organizationId) {
+          console.warn('⚠️ No se encontró organizationId en los metadatos');
+          return NextResponse.json({ received: true });
+        }
+
         await supabaseAdmin
           .from('organizations')
           .update({
-            subscription_plan: planName.toLowerCase(),
+            subscription_plan: planName?.toLowerCase() || 'free',
             stripe_subscription_id: session.subscription,
             subscription_status: 'active'
           })
@@ -47,33 +64,35 @@ export async function POST(request) {
         break;
       }
       
-      case 'invoice.payment_succeeded': {
-        // Registro exitoso de pago
-        const invoice = event.data.object;
-        const subscriptionId = invoice.subscription;
-        
-        // Actualizar estado si es necesario
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object;
+        console.log('🔄 Suscripción creada/actualizada:', subscription);
+
         const { data: organization } = await supabaseAdmin
           .from('organizations')
           .select('*')
-          .eq('stripe_subscription_id', subscriptionId)
+          .eq('stripe_subscription_id', subscription.id)
           .single();
-          
-        if (organization && organization.subscription_status !== 'active') {
+        
+        if (organization) {
           await supabaseAdmin
             .from('organizations')
-            .update({ subscription_status: 'active' })
+            .update({
+              subscription_status: subscription.status,
+              subscription_plan: subscription.plan?.nickname?.toLowerCase() || 'free'
+            })
             .eq('id', organization.id);
         }
-        
         break;
       }
       
-      case 'invoice.payment_failed': {
+      case 'invoice.payment_succeeded': {
         const invoice = event.data.object;
+        console.log('💰 Pago exitoso:', invoice);
+        
         const subscriptionId = invoice.subscription;
         
-        // Marcar como fallido para notificar al usuario
         const { data: organization } = await supabaseAdmin
           .from('organizations')
           .select('*')
@@ -83,7 +102,35 @@ export async function POST(request) {
         if (organization) {
           await supabaseAdmin
             .from('organizations')
-            .update({ subscription_status: 'past_due' })
+            .update({ 
+              subscription_status: 'active',
+              last_payment_date: new Date().toISOString()
+            })
+            .eq('id', organization.id);
+        }
+        
+        break;
+      }
+      
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        console.log('❌ Pago fallido:', invoice);
+        
+        const subscriptionId = invoice.subscription;
+        
+        const { data: organization } = await supabaseAdmin
+          .from('organizations')
+          .select('*')
+          .eq('stripe_subscription_id', subscriptionId)
+          .single();
+          
+        if (organization) {
+          await supabaseAdmin
+            .from('organizations')
+            .update({ 
+              subscription_status: 'past_due',
+              failed_payments_count: (organization.failed_payments_count || 0) + 1
+            })
             .eq('id', organization.id);
         }
         
@@ -92,8 +139,8 @@ export async function POST(request) {
       
       case 'customer.subscription.deleted': {
         const subscription = event.data.object;
+        console.log('❌ Suscripción cancelada:', subscription);
         
-        // Marcar como cancelado
         const { data: organization } = await supabaseAdmin
           .from('organizations')
           .select('*')
@@ -105,26 +152,39 @@ export async function POST(request) {
             .from('organizations')
             .update({
               subscription_status: 'canceled',
-              subscription_plan: 'free'
+              subscription_plan: 'free',
+              cancellation_date: new Date().toISOString()
             })
             .eq('id', organization.id);
         }
         
         break;
       }
+      
+      default: {
+        console.log(`📌 Evento no manejado: ${event.type}`);
+      }
     }
     
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error(`Error processing webhook: ${error.message}`);
+    console.error('💥 Error procesando webhook:', {
+      message: error.message,
+      type: event.type,
+      stack: error.stack
+    });
+    
     return NextResponse.json(
-      { error: `Webhook handler failed: ${error.message}` },
+      { 
+        error: 'Webhook handler failed', 
+        details: error.message 
+      },
       { status: 500 }
     );
   }
 }
 
-// Permitir POST sin CSRF
+// Configuración para deshabilitar body parser
 export const config = {
   api: {
     bodyParser: false,
