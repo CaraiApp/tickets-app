@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getStripe, pricingPlans } from '@/lib/stripe';
 import Link from 'next/link';
 
-export default function PricingPage() {
+// Componente separado para el contenido de la página
+function PricingContent() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -197,5 +198,14 @@ export default function PricingPage() {
         ))}
       </div>
     </div>
+    
+  );
+}
+// Añade este bloque al final del archivo, fuera de cualquier otro componente
+export default function PricingPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <PricingContent />
+    </Suspense>
   );
 }
