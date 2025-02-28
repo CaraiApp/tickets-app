@@ -42,7 +42,7 @@ export async function POST(request) {
               {
                 type: "text",
                 text: "Analiza este ticket de compra y extrae la siguiente información en formato JSON:\n\n" +
-                      "1. fecha: la fecha del ticket en formato YYYY-MM-DD (muy importante este formato exacto). Si no puedes determinar la fecha con certeza, usa la fecha actual.\n" +
+                      "1. fecha: la fecha del ticket en formato YYYY-MM-DD (muy importante este formato exacto). Si no puedes determinar la fecha con certeza, usa la fecha actual. Necesito que no te equivoques con este dato. Concentrate a fondo.\n" +
                       "2. total (XX.XX€): el importe total del ticket\n" +
                       "3. items: un array de artículos con:\n" +
                       "   - name: nombre del artículo\n" +
