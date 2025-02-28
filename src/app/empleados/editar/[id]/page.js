@@ -1,13 +1,15 @@
-"use client";
+'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import supabase from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function EditarEmpleado() {
   const { id } = useParams();
   const router = useRouter();
+  const supabase = createClientComponentClient();
+  
   const [empleado, setEmpleado] = useState({
     nombre: '',
     apellidos: '',
@@ -140,7 +142,7 @@ export default function EditarEmpleado() {
       if (error) throw error;
 
       alert('Empleado actualizado correctamente');
-      router.push(`/empleados/${id}`);
+      router.push(`/empleados2`);
     } catch (error) {
       console.error('Error al actualizar el empleado:', error);
       alert('Error al actualizar el empleado');
@@ -165,7 +167,7 @@ export default function EditarEmpleado() {
           <h1 className="text-xl font-bold">Editar Empleado</h1>
           <Link href={`/empleados/${id}`} className="text-blue-500 hover:text-blue-700">
             Volver
-          </Link>
+            </Link>
         </div>
       </header>
   

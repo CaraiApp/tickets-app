@@ -276,9 +276,9 @@ function Scanner() {
               Empleado: {empleado.nombre} {empleado.apellidos}
             </p>
           )}
-          <Link href="/" className="text-blue-500 hover:text-blue-700">
-            Volver
-          </Link>
+          <Link href={`/empleados/${empleadoId}`} className="text-blue-500 hover:text-blue-700">
+  Volver
+</Link>
         </div>
       </header>
 

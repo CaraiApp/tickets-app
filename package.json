@@ -6,18 +6,25 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prepare-db": "node scripts/prepare-db.js",
+    "migrate-data": "node scripts/migrate-data.js"
   },
   "dependencies": {
+    "@stripe/stripe-js": "^5.7.0",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.49.1",
     "@vercel/speed-insights": "^1.2.0",
     "next": "^15.1.7",
     "next-pwa": "^5.6.0",
     "node-cache": "^5.1.2",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "recharts": "^2.15.1",
+    "stripe": "^17.7.0"
   },
   "devDependencies": {
+    "dotenv": "^16.4.7",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.1.0",
     "postcss": "^8",

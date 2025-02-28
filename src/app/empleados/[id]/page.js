@@ -1,35 +1,62 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import supabase from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getUserProfile } from '@/lib/supabase';
 
 export default function PerfilEmpleado() {
   const { id } = useParams();
   const router = useRouter();
+  const supabase = createClientComponentClient();
+  
   const [empleado, setEmpleado] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [estadisticas, setEstadisticas] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [periodo, setPeriodo] = useState('todo'); // todo, mes, año
+  const [periodo, setPeriodo] = useState('todo');
   const [expandedTickets, setExpandedTickets] = useState([]);
   const [menuAccionesAbierto, setMenuAccionesAbierto] = useState(false);
   const [estadisticasMensualesAbiertas, setEstadisticasMensualesAbiertas] = useState(false);
   const [productosMasConsumidosAbierto, setProductosMasConsumidosAbierto] = useState(false);
   const [totalTickets, setTotalTickets] = useState(0);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     async function fetchEmpleadoData() {
       try {
+        const userProfile = await getUserProfile();
+        
+        if (!userProfile || !userProfile.organization) {
+          throw new Error('No se encontró la organización del usuario');
+        }
+
         // 1. Obtener datos básicos del empleado
         const { data: empleadoData, error: empleadoError } = await supabase
           .from('empleados')
           .select('*')
           .eq('id', id)
+          .eq('organization_id', userProfile.organization.id)
           .single();
   
-        if (empleadoError) throw empleadoError;
+        if (empleadoError) {
+          // Si no se encuentra el empleado o no pertenece a la organización
+          if (
+            empleadoError.code === 'PGRST116' || 
+            empleadoError.message.includes('No rows') || 
+            empleadoError.message.includes('not found')
+          ) {
+            setNotFound(true);
+          }
+          throw empleadoError;
+        }
+
+        if (!empleadoData) {
+          setNotFound(true);
+          return;
+        }
+
         setEmpleado(empleadoData);
   
         // 2. Obtener el total de tickets para este empleado
@@ -38,37 +65,47 @@ export default function PerfilEmpleado() {
           .select('*', { count: 'exact' })
           .eq('empleado_id', id);
           
-        if (countError) throw countError;
-        setTotalTickets(count || 0);
+        if (countError) {
+          console.error('Error al contar tickets:', countError);
+          setTotalTickets(0);
+        } else {
+          setTotalTickets(count || 0);
+        }
         
         // 3. Obtener solo los 10 tickets más recientes del empleado
         const { data: ticketsData, error: ticketsError } = await supabase
-  .from('tickets')
-  .select('*')
-  .eq('empleado_id', id)
-  .order('fecha', { ascending: true }) // Asegura que siempre estén ordenados del más reciente al más antiguo
-  .limit(10);
+          .from('tickets')
+          .select('*')
+          .eq('empleado_id', id)
+          .order('fecha', { ascending: false })
+          .limit(10);
   
-        if (ticketsError) throw ticketsError;
-        
-        // 4. Para cada ticket, obtener sus items
-        const ticketsWithItems = await Promise.all(
-          ticketsData.map(async (ticket) => {
-            const { data: itemsData, error: itemsError } = await supabase
-              .from('items_ticket')
-              .select('*')
-              .eq('ticket_id', ticket.id);
+        if (ticketsError) {
+          console.error('Error al obtener tickets:', ticketsError);
+          setTickets([]);
+        } else {
+          // 4. Para cada ticket, obtener sus items
+          const ticketsWithItems = await Promise.all(
+            ticketsData.map(async (ticket) => {
+              const { data: itemsData, error: itemsError } = await supabase
+                .from('items_ticket')
+                .select('*')
+                .eq('ticket_id', ticket.id);
+                
+              if (itemsError) {
+                console.error(`Error obteniendo items para ticket ${ticket.id}:`, itemsError);
+                return { ...ticket, items_ticket: [] };
+              }
               
-            if (itemsError) console.error('Error obteniendo items:', itemsError);
-            
-            return {
-              ...ticket,
-              items_ticket: itemsData || []
-            };
-          })
-        );
+              return {
+                ...ticket,
+                items_ticket: itemsData || []
+              };
+            })
+          );
   
-        setTickets(ticketsWithItems);
+          setTickets(ticketsWithItems);
+        }
         
         // 5. Obtener todos los tickets para calcular estadísticas completas
         const { data: allTicketsData, error: allTicketsError } = await supabase
@@ -76,7 +113,17 @@ export default function PerfilEmpleado() {
           .select('*')
           .eq('empleado_id', id);
           
-        if (allTicketsError) throw allTicketsError;
+        if (allTicketsError) {
+          console.error('Error al obtener todos los tickets:', allTicketsError);
+          setEstadisticas({
+            totalGastado: '0.00€',
+            numeroTickets: 0,
+            productosMasConsumidos: [],
+            estadisticasMensuales: [],
+            productosMensuales: {}
+          });
+          return;
+        }
         
         // 6. Para cada ticket, obtener sus items para las estadísticas
         const allTicketsWithItems = await Promise.all(
@@ -86,7 +133,10 @@ export default function PerfilEmpleado() {
               .select('*')
               .eq('ticket_id', ticket.id);
               
-            if (itemsError) console.error('Error obteniendo items para estadísticas:', itemsError);
+            if (itemsError) {
+              console.error(`Error obteniendo items para estadísticas del ticket ${ticket.id}:`, itemsError);
+              return { ...ticket, items_ticket: [] };
+            }
             
             return {
               ...ticket,
@@ -103,22 +153,18 @@ export default function PerfilEmpleado() {
           const productosMensuales = {};
   
           allTicketsWithItems.forEach(ticket => {
-            // Conversión segura de total
             const ticketTotal = typeof ticket.total === 'string' 
               ? parseFloat(ticket.total.replace('€', '').replace(',', '.')) 
               : ticket.total || 0;
             
-            // Obtener mes del ticket
             const fechaTicket = new Date(ticket.fecha);
             const mes = fechaTicket.toLocaleString('default', { month: 'long' });
             const año = fechaTicket.getFullYear();
             const mesAño = `${mes} ${año}`;
             
-            // Acumular total global y por mes
             totalGastado += ticketTotal;
             estadisticasMensuales[mesAño] = (estadisticasMensuales[mesAño] || 0) + ticketTotal;
             
-            // Procesamiento de productos
             if (ticket.items_ticket && ticket.items_ticket.length > 0) {
               ticket.items_ticket.forEach(item => {
                 const descripcion = item.descripcion;
@@ -127,7 +173,6 @@ export default function PerfilEmpleado() {
                   : item.precio || 0;
                 const cantidad = item.cantidad || 1;
                 
-                // Acumular productos globales
                 if (!productos[descripcion]) {
                   productos[descripcion] = { cantidad, total: precio * cantidad };
                 } else {
@@ -135,7 +180,6 @@ export default function PerfilEmpleado() {
                   productos[descripcion].total += precio * cantidad;
                 }
   
-                // Acumular productos mensuales
                 if (!productosMensuales[mesAño]) {
                   productosMensuales[mesAño] = {};
                 }
@@ -149,14 +193,12 @@ export default function PerfilEmpleado() {
             }
           });
   
-          // Convertir estadísticas mensuales a lista ordenada
           const estadisticasMensualesOrdenadas = Object.entries(estadisticasMensuales)
             .map(([mesAño, total]) => ({
               mesAño,
               total: total.toFixed(2) + '€'
             }))
             .sort((a, b) => {
-              // Ordenar por mes y año
               const [mesA, añoA] = a.mesAño.split(' ');
               const [mesB, añoB] = b.mesAño.split(' ');
               return new Date(añoA, ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'].indexOf(mesA)) - 
@@ -188,13 +230,36 @@ export default function PerfilEmpleado() {
   
         setLoading(false);
       } catch (error) {
-        console.error('Error completo:', error);
+        console.error('Error al cargar datos del empleado:', error);
         setLoading(false);
+        setNotFound(true);
       }
     }
   
     fetchEmpleadoData();
-  }, [id, periodo]);
+  }, [id, periodo, router]);
+
+    // Página de "No encontrado"
+  if (notFound) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-4">
+            Empleado no encontrado
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Lo sentimos, el empleado que está buscando no existe o no pertenece a su organización.
+          </p>
+          <Link 
+            href="/empleados2" 
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition"
+          >
+            Volver a Empleados
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const confirmarEliminar = async () => {
     if (window.confirm(`¿Estás seguro de que deseas eliminar al empleado ${empleado.nombre} ${empleado.apellidos}?`)) {
@@ -253,11 +318,7 @@ export default function PerfilEmpleado() {
   
       alert('Ticket eliminado correctamente');
     } catch (error) {
-      // Método de registro seguro
-      if (typeof window !== 'undefined' && window.console && window.console.log) {
-        window.console.log('Error al eliminar el ticket:', error);
-      }
-      
+      console.error('Error al eliminar el ticket:', error);
       alert('Error al eliminar el ticket');
     }
   };
@@ -279,6 +340,7 @@ export default function PerfilEmpleado() {
     }
   };
 
+  // Resto del código de renderizado (similar al original)
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -295,14 +357,14 @@ export default function PerfilEmpleado() {
       <header className="p-4 bg-white dark:bg-gray-800 shadow">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold">Perfil del Empleado</h1>
-          <Link href="/" className="text-blue-500 hover:text-blue-700">
+          <Link href="/empleados2"  className="text-blue-500 hover:text-blue-700">
             Volver
           </Link>
         </div>
       </header>
 
       <div className="container mx-auto p-4">
-        {/* Nuevo bloque de estadísticas resumen */}
+        {/* Estadísticas resumen */}
         {estadisticas && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 grid grid-cols-2 gap-4">
             <div className="text-center">
@@ -316,16 +378,15 @@ export default function PerfilEmpleado() {
           </div>
         )}
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+        {/* Información del empleado */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
           <div className="flex items-start">
-            {/* Información del empleado */}
             <div className="flex-grow">
               <h2 className="text-2xl font-bold mb-2">{empleado.nombre} {empleado.apellidos}</h2>
               <p>DNI: {empleado.dni}</p>
               <p>Teléfono: {empleado.telefono}</p>
             </div>
 
-            {/* Firma del empleado */}
             {empleado.firma_url && (
               <div className="ml-4 w-48 h-24 border rounded overflow-hidden">
                 <img 
@@ -338,7 +399,6 @@ export default function PerfilEmpleado() {
           </div>
 
           <div className="mt-4 flex space-x-2">
-            {/* Botón de Escanear */}
             <Link 
               href={`/scanner?empleadoId=${id}`} 
               className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
@@ -346,7 +406,6 @@ export default function PerfilEmpleado() {
               Escanear
             </Link>
 
-            {/* Menú de acciones */}
             <div className="relative w-full">
               <button
                 onClick={() => setMenuAccionesAbierto(!menuAccionesAbierto)}
@@ -373,7 +432,7 @@ export default function PerfilEmpleado() {
                       Editar
                     </Link>
                     <button 
-                      onClick={confirmarEliminar} 
+                      onClick={confirmarEliminar}
                       className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600"
                     >
                       Eliminar
@@ -494,6 +553,7 @@ export default function PerfilEmpleado() {
                     className="block w-full"
                   >
                     <button
+                      onClick={() => toggleTicket(ticket.id)}
                       className="w-full bg-gray-100 dark:bg-gray-700 px-4 py-3 text-left flex justify-between items-center"
                     >
                       <div className="flex items-center space-x-4">
@@ -524,7 +584,7 @@ export default function PerfilEmpleado() {
                     <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-600">
                       {ticket.items_ticket && ticket.items_ticket.length > 0 ? (
                         <ul className="space-y-1">
-                          {ticket.items_ticket && ticket.items_ticket.map((item, index) => (
+                          {ticket.items_ticket.map((item, index) => (
                             <li key={index} className="flex justify-between text-sm">
                               <span>
                                 {item.cantidad > 1 ? `${item.cantidad}x ` : ''}

@@ -89,13 +89,21 @@ export default function NuevoEmpleado() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (!firma) {
       alert('Por favor, añade una firma antes de guardar');
       return;
     }
-
+  
     try {
+      // Obtener la organización del usuario actual
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('organization_id')
+        .eq('id', session.user.id)
+        .single();
+  
       const { data, error } = await supabase
         .from('empleados')
         .insert([
@@ -104,15 +112,16 @@ export default function NuevoEmpleado() {
             apellidos: empleado.apellidos,
             dni: empleado.dni,
             telefono: empleado.telefono,
-            firma_url: firma
+            firma_url: firma,
+            organization_id: userProfile.organization_id // Añadir organization_id
           }
         ])
         .select();
-
+  
       if (error) throw error;
-
+  
       alert('Empleado guardado correctamente');
-      router.push('/');
+      router.push('/dashboard'); // Redirigir al dashboard
     } catch (error) {
       console.error('Error al guardar el empleado:', error);
       alert('Error al guardar el empleado');
@@ -124,8 +133,11 @@ export default function NuevoEmpleado() {
       <header className="p-4 bg-white dark:bg-gray-800 shadow">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold">Nuevo Empleado</h1>
-          <Link href="/" className="text-blue-500 hover:text-blue-700">
-            Volver
+          <Link href="/dashboard" className="text-blue-500 hover:text-blue-700 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Volver al Dashboard
           </Link>
         </div>
       </header>
