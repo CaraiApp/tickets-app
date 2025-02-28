@@ -30,18 +30,10 @@ export async function POST(request) {
     }
 
     // Verificación adicional de precio en Stripe
-    try {
-      const price = await stripeServer.prices.retrieve(priceId);
-      console.log('Precio verificado:', price);
-    } catch (priceError) {
-      console.error('Error verificando precio:', priceError);
-      return NextResponse.json(
-        { error: 'Precio inválido', details: priceError.message },
-        { status: 400 }
-      );
-    }
+    const price = await stripeServer.prices.retrieve(priceId);
+    console.log('Precio verificado:', price);
 
-    // Resto de tu código de creación de sesión...
+    // Crear sesión de checkout
     const checkoutSession = await stripeServer.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'subscription',
@@ -53,7 +45,7 @@ export async function POST(request) {
       ],
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?success=true`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?canceled=true`,
-      // Añade más configuraciones si es necesario
+      billing_address_collection: 'auto',
     });
 
     return NextResponse.json({ sessionId: checkoutSession.id });
@@ -69,46 +61,6 @@ export async function POST(request) {
         // Opcional: incluir más detalles del error para depuración
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
-      { status: 500 }
-    );
-  }
-}
-    
-    // Crear sesión de checkout
-    try {
-      const checkoutSession = await stripeServer.checkout.sessions.create({
-        customer: customerId,
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        mode: 'subscription',
-        success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?success=true&plan=${encodeURIComponent(planName)}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?canceled=true`,
-        metadata: {
-          organizationId,
-          planName,
-          userId: session.user.id,
-        },
-        // Agregar más opciones de configuración si es necesario
-        automatic_tax: { enabled: true },
-        billing_address_collection: 'auto',
-      });
-      
-      return NextResponse.json({ sessionId: checkoutSession.id });
-    } catch (checkoutError) {
-      console.error('Error creando sesión de checkout:', checkoutError);
-      return NextResponse.json(
-        { error: 'No se pudo crear la sesión de checkout' },
-        { status: 500 }
-      );
-    }
-  } catch (error) {
-    console.error('Error general en la creación de sesión:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
       { status: 500 }
     );
   }
